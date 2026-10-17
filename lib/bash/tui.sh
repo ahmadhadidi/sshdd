@@ -66,28 +66,32 @@ _repeat() {
 _max() { (( $1 >= $2 )) && printf '%d' "$1" || printf '%d' "$2"; }
 _min() { (( $1 <= $2 )) && printf '%d' "$1" || printf '%d' "$2"; }
 
-# Drain escape-sequence continuation bytes after the leading \x1b has been read.
-# Sets global _ESC_TAIL to the remaining bytes (e.g. "[B" for DOWN, "[15~" for F5).
-# Uses stty min 0 time 1 (100 ms VTIME kernel timeout) + read -r (no -n).
-# restore_stty: stty flags to re-apply after drain (omit for _read_key, which
-#   restores its full saved state via $_st at the end of the function).
+# Read the rest of an escape sequence after the leading \x1b. Sets _ESC_TAIL
+# (e.g. "[B" for DOWN, "[15~" for F5, "" for a bare Esc). TODO #11.
+# restore_stty: stty flags to re-apply afterwards (omit for _read_key, which
+#   restores its full saved state itself).
 #
-# Why read -r instead of read -r -n1:
-#   read -r -n1 with VTIME=1 works on macOS bash 3.2 but BLOCKS on Linux bash 3.2
-#   when no bytes are available (the -n count is never satisfied, so bash loops
-#   indefinitely rather than honouring the 100 ms VTIME timeout).
-#   read -r (no -n) reads until newline or EOF; a 0-byte return from read() due to
-#   VTIME expiry is seen as EOF by bash on both platforms — no blocking.
+# Only a bare Esc waits: the byte after \x1b is read by dd under stty min 0 time 1,
+# so nothing within 100 ms means Esc. Bash's own read can't do this: read -n1 forces
+# VMIN=1 and blocks forever (bash 3.2, Linux), and read without -n slurps every
+# waiting byte (later keys too: held-down arrows merged into one unknown key and were
+# dropped) and then still sits out the 100 ms. The rest of a CSI/SS3 sequence is
+# already in the tty buffer, so read -n1 returns at once, up to the final byte.
 _esc_drain() {
-    local _restore_stty=${1:-}
-    local _et=''
+    local _restore_stty=${1:-} _c _n=0
+    _ESC_TAIL=''
     stty min 0 time 1 2>/dev/null || true
-    # Do NOT use '|| _et=''': read -r returns non-zero on EOF even when bytes were
-    # read (VTIME fires after reading [B with no trailing newline), so the OR-branch
-    # would wipe out the bytes that were successfully accumulated.
-    IFS= read -r _et 2>/dev/null
+    _c=$(dd bs=1 count=1 2>/dev/null)
+    if [[ $_c == '[' || $_c == 'O' ]]; then
+        _ESC_TAIL=$_c
+        while (( _n++ < 8 )) && IFS= read -r -n1 _c 2>/dev/null; do
+            _ESC_TAIL+=$_c
+            [[ $_c == [A-Za-z~] ]] && break      # final byte of the sequence
+        done
+    elif [[ -n $_c ]]; then
+        _ESC_TAIL=$_c                           # Alt+key, e.g. \x1b\x7f
+    fi
     [[ -n $_restore_stty ]] && stty $_restore_stty 2>/dev/null || true
-    _ESC_TAIL="$_et"
 }
 
 # Read one keypress (blocking). Sets global KEY.

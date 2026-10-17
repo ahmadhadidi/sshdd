@@ -98,7 +98,8 @@ if (( VERBOSE )); then
     : > "$_LOG_FILE"
     printf '\e[33mVerbose mode: logging to %s\e[0m\n' "$_LOG_FILE"
     printf '\e[90mIn another terminal run:  tail -f %s\e[0m\n' "$_LOG_FILE"
-    sleep 1
+    printf '\e[90mPress any key to start.\e[0m'
+    IFS= read -r -s -n1 _ 2>/dev/null || true
 fi
 
 show_main_menu

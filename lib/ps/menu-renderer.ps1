@@ -166,7 +166,9 @@ function Show-MainMenu {
                         $needFull   = $true
                         break
                     }
-                    Start-Sleep -Milliseconds 50
+                    # Poll interval, not a delay: KeyAvailable has no blocking-with-timeout form.
+                    # 10 ms keeps key latency under a frame (TODO #11; was 50 ms).
+                    Start-Sleep -Milliseconds 10
                 }
             }
 
