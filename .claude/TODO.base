@@ -1,0 +1,77 @@
+filters:
+  and:
+  - file.inFolder("/proj/sshdd/.claude/todo")
+formulas:
+  item: '"#" + number + " · " + category + " · " + creator'
+properties:
+  note.latest:
+    displayName: Last update
+  formula.item:
+    displayName: Item
+views:
+- type: kanban
+  name: TODO
+  filters:
+    and:
+    - kind == "todo"
+    - or:
+      - status != "Done"
+      - file.mtime > now() - "7d"
+  groupBy:
+    property: note.status
+    direction: ASC
+  groupOrder:
+  - Inbox
+  - In progress
+  - Review
+  - Done
+  order:
+  - note.title
+  - formula.item
+  - note.latest
+  sort:
+  - property: note.category
+    direction: ASC
+  - property: note.number
+    direction: DESC
+  columnWidth: 360
+- type: kanban
+  name: Lessons
+  filters:
+    and:
+    - kind == "lesson"
+    - or:
+      - status != "Done"
+      - file.mtime > now() - "7d"
+  groupBy:
+    property: note.status
+    direction: ASC
+  groupOrder:
+  - Inbox
+  - In progress
+  - Review
+  - Done
+  order:
+  - note.title
+  - formula.item
+  - note.latest
+  sort:
+  - property: note.category
+    direction: ASC
+  - property: note.number
+    direction: DESC
+  columnWidth: 360
+- type: table
+  name: All
+  order:
+  - note.number
+  - note.title
+  - note.status
+  - note.kind
+  - note.category
+  - note.creator
+  - note.created
+  - note.latest
+  sort:
+  - property: note.number
+    direction: DESC
