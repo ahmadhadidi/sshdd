@@ -38,7 +38,7 @@ def test_esc_at_key_comment_cancels(home, hotkey):
     with Term(home=home) as t:
         t.wait_for("Quit")
         t.press(hotkey)
-        t.wait_for("Up/Dn navigate")          # key-name picker
+        t.wait_for("Up/Dn navigate" if hotkey == "G" else "Enter SSH key name")   # G: key picker, W: name prompt
         t.press("brandnew", "ENTER")
         t.wait_for("Key comment")
         t.press("ESC")
@@ -71,3 +71,23 @@ def test_typed_unknown_host_is_used_directly(home, typed, shown):
         assert shown in t.text()
         t.press("ESC")
         _back_to_main_then_quit(t)
+
+
+def test_generate_local_asks_for_a_new_name(home):
+    """TODO #4: W asks for a new name (no picker of existing keys) and rejects bad or taken names."""
+    with Term(home=home) as t:
+        t.wait_for("Quit")
+        t.press("W")
+        t.wait_for("Enter SSH key name")
+        assert "Select SSH key" not in t.text()
+        t.press("k1", "ENTER")
+        t.wait_for("already exists")
+        t.press("bad name", "ENTER")
+        t.wait_for("no spaces")
+        t.press("fresh", "ENTER")
+        t.wait_for("Key comment")
+        t.press("ENTER")
+        t.wait_for("Passphrase")
+        t.press("ENTER")
+        t.wait_for("generated")
+        assert (home / ".ssh" / "fresh").exists() and (home / ".ssh" / "fresh.pub").exists()

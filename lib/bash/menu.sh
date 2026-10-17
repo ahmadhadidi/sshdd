@@ -205,7 +205,7 @@ _menu_promote_key() {            # choice 4
 
 _menu_generate_key() {           # choice 5
     show_op_banner "host" "$(hostname)"
-    local keyname; keyname=$(read_ssh_key_name) || return 1
+    local keyname; keyname=$(read_new_ssh_key_name) || return 1
     local comment; comment=$(read_ssh_key_comment "${keyname}${DEFAULT_COMMENT_SUFFIX}") || return 1
     add_ssh_key_in_host "$keyname" "$comment"
 }

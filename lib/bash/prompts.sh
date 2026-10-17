@@ -7,7 +7,7 @@ _PROMPTS_SH_LOADED=1
 
 # EXPORTS: read_colored_input  read_host_with_default
 #          read_remote_user  read_remote_host_address  read_remote_host_name
-#          read_ssh_key_name  read_ssh_key_comment  confirm_user_choice
+#          read_ssh_key_name  read_new_ssh_key_name  read_ssh_key_comment  confirm_user_choice
 #          find_config_file  find_private_key  find_public_key
 #          get_public_key  resolve_ssh_target
 
@@ -399,6 +399,27 @@ read_remote_host_name() {
     fi
     
     printf '%s' "$_RCI_RESULT"
+}
+
+# Name for a NEW key (no picker of existing keys, TODO #4). Re-asks until the name is non-empty,
+# safe as a file name, and not already in ~/.ssh. Esc returns 1.
+read_new_ssh_key_name() {
+    while true; do
+        _RCI_RESULT=""
+        read_colored_input "  Enter SSH key name" cyan >/dev/null
+        (( _SELECT_CANCELLED )) && return 1
+        local name="$_RCI_RESULT"
+        if [[ -z $name ]]; then
+            printf '  \e[31mKey name is required.\e[0m\n' >&2
+        elif [[ ! $name =~ ^[A-Za-z0-9_][A-Za-z0-9._@+-]*$ ]]; then
+            printf '  \e[31mUse letters, digits and . _ @ + - only (no spaces or /).\e[0m\n' >&2
+        elif [[ -e "$SSH_DIR/$name" || -e "$SSH_DIR/$name.pub" ]]; then
+            printf '  \e[31m%s already exists in %s. Pick another name.\e[0m\n' "$name" "$SSH_DIR" >&2
+        else
+            printf '%s' "$name"
+            return 0
+        fi
+    done
 }
 
 read_ssh_key_name() {

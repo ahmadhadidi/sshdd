@@ -105,3 +105,20 @@ def test_powershell_host_prompt_esc_and_typed_text(tmp_path):
     out = subprocess.run(["pwsh", "-NoProfile", "-Command", script],
                          capture_output=True, text=True, check=True).stdout.split()
     assert out == ["192.168.0.10", "10.0.0.5", "tabs", "newhost", "CANCELLED"]
+
+
+@pytest.mark.skipif(not shutil.which("pwsh"), reason="pwsh not installed")
+def test_powershell_new_key_name(tmp_path):
+    """TODO #4 parity: Read-NewSSHKeyName re-asks on empty, unsafe and existing names."""
+    (tmp_path / ".ssh").mkdir()
+    (tmp_path / ".ssh" / "k1").write_text("x")
+    libs = "; ".join(f". '{ROOT}/lib/ps/{m}.ps1'" for m in PS_LIBS)
+    script = (
+        f"$env:USERPROFILE = '{tmp_path}'; {libs}\n"
+        "$script:answers = [System.Collections.Queue]::new(@('', 'bad name', 'k1', 'fresh'))\n"
+        "function Read-ColoredInput { param($Prompt, $ForegroundColor) $script:answers.Dequeue() }\n"
+        "$n = Read-NewSSHKeyName 6>$null; \"$n left=$($script:answers.Count)\"\n"
+    )
+    out = subprocess.run(["pwsh", "-NoProfile", "-Command", script],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    assert out == "fresh left=0"

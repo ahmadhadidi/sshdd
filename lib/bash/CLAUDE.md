@@ -99,7 +99,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 - `read_colored_input`:25 `PROMPT COLOR` — single-line text input with ESC cancel, Ctrl+W word-delete
 - `read_host_with_default`:160 `PROMPT DEFAULT` — pre-filled editable input
 - `read_remote_host_address`:267 — host selector; Esc cancels; typed text that isn't a configured host is the address (subnet shorthand `"10"` → `"192.168.0.10"`); the manual prompt appears only when no hosts are configured
-- `read_remote_user`:262 / `read_remote_host_name`:362 / `read_ssh_key_name`:398 / `read_ssh_key_comment`:432
+- `read_remote_user`:262 / `read_remote_host_name`:362 / `read_ssh_key_name`:398 (picker of existing keys) / `read_new_ssh_key_name` (new name, validated, no picker; used by W) / `read_ssh_key_comment`:432
 - `confirm_user_choice`:438 `MESSAGE DEFAULT ACTION_FN` — y/N confirmation that calls a callback
 - `find_config_file`:469 / `find_private_key`:478 / `find_public_key`:483 / `get_public_key`:488
 - `resolve_ssh_target`:503

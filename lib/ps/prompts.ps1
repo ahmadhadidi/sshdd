@@ -92,6 +92,25 @@ function Read-SSHKeyName {
 }
 
 
+function Read-NewSSHKeyName {
+    # Name for a NEW key (no picker of existing keys, TODO #4). Re-asks until the name is non-empty,
+    # safe as a file name, and not already in ~/.ssh.
+    $sshDir = Join-Path $env:USERPROFILE ".ssh"
+    while ($true) {
+        $name = Read-ColoredInput -Prompt "  Enter SSH key name" -ForegroundColor "Cyan"
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            Write-Host "  Key name is required." -ForegroundColor Red
+        } elseif ($name -cnotmatch '^[A-Za-z0-9_][A-Za-z0-9._@+-]*$') {
+            Write-Host "  Use letters, digits and . _ @ + - only (no spaces or /)." -ForegroundColor Red
+        } elseif ((Test-Path (Join-Path $sshDir $name)) -or (Test-Path (Join-Path $sshDir "$name.pub"))) {
+            Write-Host "  $name already exists in $sshDir. Pick another name." -ForegroundColor Red
+        } else {
+            return $name
+        }
+    }
+}
+
+
 function Read-SSHKeyComment {
     param ([string]$DefaultComment)
     return Read-HostWithDefault -Prompt "Key comment:" -Default $DefaultComment

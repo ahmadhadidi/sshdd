@@ -163,7 +163,7 @@ function _MenuPromoteKey {           # choice 4 — install new key, remove old 
 
 function _MenuGenerateKey {          # choice 5 — generate ED25519 pair locally without deploying
     Show-OpBanner @("host", $env:COMPUTERNAME)
-    $KeyName = Read-SSHKeyName
+    $KeyName = Read-NewSSHKeyName
     $Comment = Read-SSHKeyComment -DefaultComment "$KeyName$DefaultCommentSuffix"
     Add-SSHKeyInHost -KeyName $KeyName -Comment $Comment
 }
