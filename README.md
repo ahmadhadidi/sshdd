@@ -1,58 +1,78 @@
-# 🌊 HDD SSH Keys
+# 🌊 SSHDD
 
-A terminal-based SSH key manager with a full interactive TUI — available for both **Windows (PowerShell)** and **Linux (Bash)**.
-
-Managing SSH keys across multiple machines is repetitive and error-prone: generating keys, copying them to remotes, keeping `~/.ssh/config` in sync, cleaning up old keys, and rotating credentials all involve the same handful of commands done over and over. This script wraps all of that into a single interactive menu so you never have to remember the incantations.
+Interactive TUI for SSH keys: generate, deploy, test, rotate, and keep `~/.ssh/config` in sync.
 
 ---
 
 ## Linux (Bash)
 
-### Run directly from the cloud
+### Run from the cloud
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) \
-  --user username_of_target_machine \
-  --subnet 192.168.0 \
-  --comment-suffix "-[my-machine]"
+bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"
 ```
 
-### Run after git clone
+### Run locally
 
 ```bash
-git clone https://github.com/ahmadhadidi/sshdd.git
-cd sshdd
-
-bash sshdd.sh \
-  --user username_of_target_machine \
-  --subnet 192.168.0 \
-  --comment-suffix "-[my-machine]"
+git clone https://github.com/ahmadhadidi/sshdd.git ~/sshdd
+bash ~/sshdd/sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"
 ```
+
+### Alias
+
+Add one to `~/.bashrc` (or `~/.zshrc`):
+
+```bash
+alias sshdd='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"'  # cloud
+alias sshdd='bash ~/sshdd/sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"'  # local
+```
+
+Then just run `sshdd` (extra options still pass through, e.g. `sshdd --verbose`).
 
 ### Options
 
 | Option | Default | Description |
 |---|---|---|
 | `--user NAME` | `default_non_root_username` | Default remote username |
-| `--subnet PREFIX` | `192.168.0` | Subnet prefix (type `10` → resolves to `192.168.0.10`) |
+| `--subnet PREFIX` | `192.168.0` | Subnet prefix (`10` → `192.168.0.10`) |
 | `--comment-suffix STR` | `-[my-machine]` | Appended to key comments |
-| `--password PASS` | *(empty)* | Default SSH password (used with `sshpass` if installed) |
+| `--password PASS` | *(empty)* | Default SSH password (needs `sshpass`) |
+| `--verbose` | off | Debug log to `/tmp/sshdd-debug.log` |
 
 ---
 
 ## Windows (PowerShell)
 
-### Run directly from the cloud
+### Run from the cloud
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) -DefaultUserName "myuser" -DefaultSubnetPrefix "192.168.0" -DefaultPassword "abc123"
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]"
 ```
 
-### Run after git clone
+### Run locally
 
 ```powershell
-git clone https://github.com/ahmadhadidi/sshdd.git
-cd sshdd
-
-& ./sshdd.ps1 -DefaultUserName username_of_target_machine -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]" -DefaultPassword "abc123"
+git clone https://github.com/ahmadhadidi/sshdd.git $HOME\sshdd
+& $HOME\sshdd\sshdd.ps1 -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]"
 ```
+
+### Alias
+
+Add one to your profile (`notepad $PROFILE`):
+
+```powershell
+function sshdd { & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]" @args }  # cloud
+function sshdd { & "$HOME\sshdd\sshdd.ps1" -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]" @args }  # local
+```
+
+Then just run `sshdd`.
+
+### Options
+
+| Option | Default | Description |
+|---|---|---|
+| `-DefaultUserName` | `default_non_root_username` | Default remote username |
+| `-DefaultSubnetPrefix` | `192.168.0` | Subnet prefix |
+| `-DefaultCommentSuffix` | `-[my-machine]` | Appended to key comments |
+| `-DefaultPassword` | *(empty)* | Default SSH password |
