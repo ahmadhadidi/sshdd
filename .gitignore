@@ -12,3 +12,6 @@ tests/__pycache__/
 ._todo1.md
 todo1.md.save
 tests/*.md
+# claude-init
+handoff/
+.claude/lessons/

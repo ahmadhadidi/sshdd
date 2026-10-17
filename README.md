@@ -112,3 +112,7 @@ Then just run `sshdd`.
 | `-DefaultSubnetPrefix` | `192.168.0` | Subnet prefix |
 | `-DefaultCommentSuffix` | `-[my-machine]` | Appended to key comments |
 | `-DefaultPassword` | *(empty)* | Default SSH password |
+
+## Backups
+
+- `backup/2026-10-17-1959-boilerplate-adoption` — before adopting claude-init (2026-10-17 19:59).
