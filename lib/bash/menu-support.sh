@@ -73,14 +73,11 @@ _run_conf_editor() {
     printf '\e[?25l'
     while (( conf_run )); do
         _term_size
-        local rule; rule=$(_repeat '─' "$(( TERM_W - 4 > 0 ? TERM_W - 4 : 0 ))")
-        local title="Conf: Global Defaults"
-        local tpad; tpad=$(_repeat ' ' "$(( (TERM_W - 4 - ${#title}) / 2 > 0 ? (TERM_W - 4 - ${#title}) / 2 : 0 ))")
+        # Same teal title box as every other operation screen (TODO #5): rows 2-7.
+        local _OP_HDR_ROW=1; _draw_op_header "Conf: Global Defaults"
+        local _conf_top=$(( _OP_HDR_HEIGHT + 1 ))   # first field row
         local cf
-        cf="$(printf '\e[2J\e[H')"
-        cf+="$(printf '\e[2;1H  \e[96m%s\e[0m\e[K' "$rule")"
-        cf+="$(printf '\e[3;1H  \e[96m%s%s\e[0m\e[K' "$tpad" "$title")"
-        cf+="$(printf '\e[4;1H  \e[96m%s\e[0m\e[K' "$rule")"
+        cf="$(printf '\e[2J\e[H')$_OP_HDR_BUF"
         local i
         for (( i=0; i<${#field_names[@]}; i++ )); do
             local varname="${field_names[$i]}"
@@ -91,7 +88,7 @@ _run_conf_editor() {
             else
                 disp="$val"
             fi
-            local row=$(( 6 + i ))
+            local row=$(( _conf_top + i ))
             cf+="$(printf '\e[%d;1H' "$row")"
             if (( i == conf_sel )); then
                 # 2-space margin inside the teal block so label aligns with unselected rows
@@ -112,7 +109,7 @@ _run_conf_editor() {
         local _c3="\$sb=[scriptblock]::Create((irm \"${_raw_url}/sshdd.ps1\")); & \$sb${_pf}"
         local _c4="& ./sshdd.ps1${_pf}"
         # Wrap each command with OS-appropriate continuation characters
-        local _ln _cur_row=11
+        local _ln _cur_row=$(( _conf_top + ${#field_names[@]} + 1 ))
         cf+="$(printf '\e[%d;1H\e[K' "$_cur_row")"; (( _cur_row++ ))
         cf+="$(printf '\e[%d;1H  \e[90mTo persist across sessions:\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
         cf+="$(printf '\e[%d;1H\e[K' "$_cur_row")"; (( _cur_row++ ))
@@ -152,7 +149,7 @@ _run_conf_editor() {
             "$KEY_UP")   (( conf_sel = (conf_sel - 1 + ${#field_names[@]}) % ${#field_names[@]} )) ;;
             "$KEY_DOWN") (( conf_sel = (conf_sel + 1) % ${#field_names[@]} )) ;;
             "$KEY_ENTER"|"$KEY_ENTER2")
-                local row=$(( 6 + conf_sel ))
+                local row=$(( _conf_top + conf_sel ))
                 printf '\e[%d;1H\e[K  \e[1;33m    %s  \e[0;33m' "$row" "${field_labels[$conf_sel]}"
                 local new_val
                 # read_colored_input manages its own raw mode and silently

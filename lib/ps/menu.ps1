@@ -297,9 +297,12 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         $rule  = ([char]0x2500).ToString() * [Math]::Max(0, $tw - 4)
         $title = "Conf: Global Defaults"
         $tpad  = " " * [Math]::Max(0, [int](($tw - 4 - $title.Length) / 2))
+        $tline = "  " + $tpad + $title
+        $tfill = " " * [Math]::Max(0, $tw - $tline.Length)
+        # Same teal title bar as every other PS operation screen (_InvokeMenuAction), TODO #5.
         $cf  = "`e[2J`e[H"
         $cf += "`e[2;1H  `e[96m$rule`e[0m`e[K"
-        $cf += "`e[3;1H  `e[96m$tpad$title`e[0m`e[K"
+        $cf += "`e[3;1H`e[48;5;23m`e[1;97m$tline$tfill`e[0m"
         $cf += "`e[4;1H  `e[96m$rule`e[0m`e[K"
         for ($i = 0; $i -lt $fieldDefs.Count; $i++) {
             $val  = (Get-Variable -Name $fieldDefs[$i].Name -Scope Script -ErrorAction SilentlyContinue).Value

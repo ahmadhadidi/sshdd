@@ -15,7 +15,7 @@ _PROMPTS_SH_LOADED=1
 
 # Prompt with color. Result printed to stdout.
 read_colored_input() {
-    local prompt="${1:-Input}" color="${2:-cyan}"
+    local prompt="${1-Input}" color="${2:-cyan}"   # an explicit "" means no label (conf editor)
     local code
     case "$color" in
         cyan)    code=36 ;;
