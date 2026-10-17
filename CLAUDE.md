@@ -30,7 +30,9 @@ bash sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[prod]" --pass
 & ./sshdd.ps1 -DefaultUserName "root" -DefaultSubnetPrefix "192.168.0"
 ```
 
-There is no build step, test framework, or linter. Both scripts run directly with no dependencies beyond Bash/PowerShell and OpenSSH (`ssh`, `ssh-keygen`). `sshpass` is optional for password-based remote auth.
+No build step. Both scripts run directly with no dependencies beyond Bash/PowerShell and OpenSSH (`ssh`, `ssh-keygen`). `sshpass` is optional for password-based remote auth.
+
+Checks: `make check` (syntax-checks `lib/bash/*.sh`, `lib/ps/*.ps1`); tests: `bash scripts/run-tests.sh -m "not lxc"` (pytest + pexpect, see `TEST.md`; `-m lxc` needs the test LXC). The pre-commit hook refreshes line numbers in this file (`make update-docs`), syntax-checks staged lib files, and runs the non-LXC tests when lib or test files are staged.
 
 ## Bash vs PowerShell parity
 
