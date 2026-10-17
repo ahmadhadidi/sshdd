@@ -3,15 +3,7 @@
 [[ -n "${_PROMPTS_SH_LOADED:-}" ]] && return 0
 _PROMPTS_SH_LOADED=1
 
-# Use a foolproof way to get the absolute path of the directory containing this script
-_PROMPTS_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-# Source TUI dependency using the absolute path
-if [[ -f "${_PROMPTS_DIR}/tui.sh" ]]; then
-    source "${_PROMPTS_DIR}/tui.sh"
-else
-    echo "CRITICAL: Could not find ${_PROMPTS_DIR}/tui.sh" >&2
-fi
+# Needs tui.sh, which sshdd.sh loads first (in a cloud run each lib is a temp file in /tmp).
 
 # EXPORTS: read_colored_input  read_host_with_default
 #          read_remote_user  read_remote_host_address  read_remote_host_name
