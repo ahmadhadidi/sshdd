@@ -19,7 +19,7 @@ deploy_ssh_key_to_remote() {
         printf '\n'
         _out warn 'Key does not exist. Generating...'
         local comment
-        comment=$(read_ssh_key_comment "${keyname}${DEFAULT_COMMENT_SUFFIX}")
+        comment=$(read_ssh_key_comment "${keyname}${DEFAULT_COMMENT_SUFFIX}") || return 1
         add_ssh_key_in_host "$keyname" "$comment"
     else
         printf '\n'
@@ -489,7 +489,7 @@ import_external_ssh_key() {
     if [[ $choice == "Local file path" ]]; then
         # ── Local path ──────────────────────────────────────────────────────
         local priv_path
-        priv_path=$(read_colored_input "  Path to private key file" cyan)
+        priv_path=$(read_colored_input "  Path to private key file" cyan) || return 1
         [[ -z $priv_path ]] && _out error 'Path is required.' && return 1
         priv_path="${priv_path/#\~/$HOME}"
         if [[ ! -f $priv_path ]]; then
@@ -499,7 +499,7 @@ import_external_ssh_key() {
         local auto_pub="${priv_path}.pub"
         local pub_path
         _out dim 'Public key — leave blank to use %s' "$auto_pub"
-        pub_path=$(read_colored_input "  Path to public key file" cyan)
+        pub_path=$(read_colored_input "  Path to public key file" cyan) || return 1
         [[ -z $pub_path ]] && pub_path="$auto_pub"
         pub_path="${pub_path/#\~/$HOME}"
         if [[ ! -f $pub_path ]]; then
@@ -518,7 +518,7 @@ import_external_ssh_key() {
         local target="${remote_user}@${host_addr}"
 
         local remote_priv
-        remote_priv=$(read_colored_input "  Full path to private key on remote" cyan)
+        remote_priv=$(read_colored_input "  Full path to private key on remote" cyan) || return 1
         [[ -z $remote_priv ]] && _out error 'Path is required.' && return 1
 
         key_name=$(basename "$remote_priv")

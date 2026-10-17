@@ -98,7 +98,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 
 - `read_colored_input`:25 `PROMPT COLOR` — single-line text input with ESC cancel, Ctrl+W word-delete
 - `read_host_with_default`:160 `PROMPT DEFAULT` — pre-filled editable input
-- `read_remote_host_address`:267 — shows host selector or accepts manual IP/subnet shorthand (e.g. `"10"` → `"192.168.0.10"`)
+- `read_remote_host_address`:267 — host selector; Esc cancels; typed text that isn't a configured host is the address (subnet shorthand `"10"` → `"192.168.0.10"`); the manual prompt appears only when no hosts are configured
 - `read_remote_user`:262 / `read_remote_host_name`:362 / `read_ssh_key_name`:398 / `read_ssh_key_comment`:432
 - `confirm_user_choice`:438 `MESSAGE DEFAULT ACTION_FN` — y/N confirmation that calls a callback
 - `find_config_file`:469 / `find_private_key`:478 / `find_public_key`:483 / `get_public_key`:488
@@ -202,6 +202,7 @@ bash 3.2 does not reliably implement `read -t 0.05` for poll-style non-blocking 
 - **SSH test isolation.** `-F /dev/null` bypasses `~/.ssh/config` entirely; `-o IdentitiesOnly=yes` alone is insufficient because it still allows keys from the matching config block.
 - **Passphrase-protected keys.** Never use `-o BatchMode=yes` when testing keys — it blocks passphrase prompts. Use `-o PreferredAuthentications=publickey` to restrict to key auth without silencing prompts.
 - **Shared HostName.** Several Host blocks may point at one IP. `resolve_ssh_target` prefers `_REMOTE_ALIAS` when the address is `_REMOTE_HOST`; anything that maps an IP back to an alias must do the same, never take the first match.
+- **Esc inside `$(...)`.** `read_colored_input` / `read_host_with_default` return 1 on Esc, but `_SELECT_CANCELLED` set inside `$(...)` never reaches the caller. Always `x=$(read_... ) || return 1`; never test `_SELECT_CANCELLED` after a `$(...)` prompt, and never let Esc fall through to a default (`confirm_user_choice`).
 - **`_LAST_SELECTED_ALIAS` subshell loss.** Any global set inside `$()` is discarded. Use `get_alias_for_host_ip` as a reverse-lookup after the subshell returns, or use `_prompt_remote` which handles this correctly.
 - **Ctrl+C guard.** The INT/TERM/TSTP traps only set the exit code; cleanup lives exclusively in the EXIT trap. The `_MENU_CLEANED_UP=1` flag prevents a second cleanup run.
 - **Terminal resize.** `trap 'need_full=1' WINCH` in `show_main_menu` triggers a full redraw on the next loop iteration. The poll-based resize detection alone is insufficient — if a key arrives during a resize, the poll branch is skipped and only a differential update runs, leaving static elements (rules, title, hint bar) unredrawn.

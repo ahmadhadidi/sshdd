@@ -257,7 +257,7 @@ read_remote_user() {
 }
 
 read_remote_host_address() {
-    local subnet="${1:-$DEFAULT_SUBNET_PREFIX}"
+    local subnet="${1:-$DEFAULT_SUBNET_PREFIX}" addr=""
     _LAST_SELECTED_ALIAS=""
 
     local -a host_entries=() host_aliases=() host_ips=()
@@ -307,7 +307,7 @@ read_remote_host_address() {
             fi
         done
 
-        select_from_list -p "Select remote host  (Esc = enter manually)" "${_dot_entries[@]}"
+        select_from_list -p "Select remote host  (or type an IP / hostname)" "${_dot_entries[@]}"
         (( _SELECT_CANCELLED )) && return 1
         if [[ -n $_SELECT_RESULT ]]; then
             local _sel_disp="$_SELECT_RESULT" _hit=-1 _nhit=0
@@ -317,8 +317,9 @@ read_remote_host_address() {
                     _hit=$_pi; break
                 fi
             done
-            # Typed filter text that narrowed the list to exactly one host.
-            if (( _hit < 0 )); then
+            # Typed filter text that narrowed the list to exactly one host
+            # (not digits/IPs: those are an address, e.g. the "10" subnet shorthand).
+            if (( _hit < 0 )) && [[ ! $_sel_disp =~ ^[0-9]{1,3}(\.[0-9]{1,3}){0,3}$ ]]; then
                 for (( _pi=0; _pi<${#host_entries[@]}; _pi++ )); do
                     [[ "${host_entries[$_pi]}" == *"$_sel_disp"* ]] && { _hit=$_pi; (( _nhit++ )); }
                 done
@@ -333,19 +334,21 @@ read_remote_host_address() {
                 fi
                 return 0
             fi
+            addr="$_sel_disp"   # typed text that isn't a configured host: use it as the address
         fi
     fi
 
-    # Call read_colored_input directly (not via $()) to avoid nested subshells.
-    # Result is in _RCI_RESULT; stdout of read_colored_input is discarded.
-    _RCI_RESULT=""
-    read_colored_input \
-        "  Enter remote IP / hostname (or last 1-3 digits for ${subnet}.xx):" cyan >/dev/null
-    local addr="$_RCI_RESULT"
     if [[ -z $addr ]]; then
-        (( _SELECT_CANCELLED )) || printf '  \e[31m No input provided.\e[0m\n' >&2
-        printf ''
-        return 1
+        # No hosts configured. Call read_colored_input directly (not via $()) to keep
+        # _SELECT_CANCELLED; the result is in _RCI_RESULT.
+        _RCI_RESULT=""
+        read_colored_input \
+            "  Enter remote IP / hostname (or last 1-3 digits for ${subnet}.xx):" cyan >/dev/null
+        addr="$_RCI_RESULT"
+        if [[ -z $addr ]]; then
+            (( _SELECT_CANCELLED )) || printf '  \e[31m No input provided.\e[0m\n' >&2
+            return 1
+        fi
     fi
     if [[ $addr =~ ^[0-9]{1,3}$ ]]; then
         local resolved="${subnet}.${addr}"
@@ -371,7 +374,7 @@ read_remote_host_name() {
 
     # 1. Try the selection list first
     if (( ${#aliases[@]} > 0 )); then
-        select_from_list -p "Select host alias  (Esc = enter manually)" "${aliases[@]}"
+        select_from_list -p "Select host alias  (or type a new one)" "${aliases[@]}"
         (( _SELECT_CANCELLED )) && return 1
         if [[ -n $_SELECT_RESULT ]]; then
             printf '%s' "$_SELECT_RESULT"
@@ -448,7 +451,8 @@ confirm_user_choice() {
     fi
 
     local response
-    response=$(read_colored_input "$message $suffix" cyan)
+    # Esc cancels: never let it fall through to the default (which may be Y).
+    response=$(read_colored_input "$message $suffix" cyan) || { printf '  \e[33mAction cancelled.\e[0m\n'; return 1; }
     [[ -z $response ]] && response="$default"
 
     case "$response" in

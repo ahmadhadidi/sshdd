@@ -157,8 +157,7 @@ _run_conf_editor() {
                 local new_val
                 # read_colored_input manages its own raw mode and silently
                 # consumes arrow/F-key sequences instead of echoing them.
-                new_val=$(read_colored_input "" cyan)
-                if [[ -n $new_val ]] && (( ! _SELECT_CANCELLED )); then
+                if new_val=$(read_colored_input "" cyan) && [[ -n $new_val ]]; then
                     printf -v "${field_names[$conf_sel]}" '%s' "$new_val"
                 fi
                 ;;

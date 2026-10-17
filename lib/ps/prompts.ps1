@@ -17,10 +17,9 @@ function Read-RemoteHostName {
     $hosts = Get-ConfiguredSSHHosts
     if ($hosts.Count -gt 0) {
         $labels = @($hosts | ForEach-Object { $_.Alias })
-        try {
-            $selected = Select-FromList -Items $labels -Prompt "Select host alias  (Esc = enter manually)"
-            if ($selected) { return $selected }
-        } catch [System.OperationCanceledException] { }
+        # Esc throws OperationCanceledException up to the caller: it cancels the operation.
+        $selected = Select-FromList -Items $labels -Prompt "Select host alias  (or type a new one)"
+        if ($selected) { return $selected }
     }
     $name = Read-ColoredInput -Prompt "  Enter the host alias / hostname" -ForegroundColor "Cyan"
     if ([string]::IsNullOrWhiteSpace($name)) {
@@ -35,30 +34,35 @@ function Read-RemoteHostAddress {
     param ([string]$SubnetPrefix = "")
     if (-not $SubnetPrefix) { $SubnetPrefix = $DefaultSubnetPrefix }
     $script:_LastSelectedAlias = $null
+    $RemoteHost = $null
 
     $hosts = Get-ConfiguredSSHHosts
     if ($hosts.Count -gt 0) {
         $labels = @($hosts | ForEach-Object {
             if ($_.HostName) { "$($_.Alias)  ($($_.HostName))" } else { $_.Alias }
         })
-        try {
-            $selected = Select-FromList -Items $labels -Prompt "Select remote host  (Esc = enter manually)"
-            if ($selected) {
-                $alias = ($selected -split '\s+\(')[0].Trim()
-                $h     = $hosts | Where-Object { $_.Alias -eq $alias } | Select-Object -First 1
-                if (-not $h) {
-                    # Typed filter text that narrowed the list to exactly one host.
-                    $hits = @(for ($i = 0; $i -lt $labels.Count; $i++) { if ($labels[$i].Contains($selected)) { $hosts[$i] } })
-                    if ($hits.Count -eq 1) { $h = $hits[0]; $alias = $h.Alias }
-                }
-                $addr  = if ($h -and $h.HostName) { $h.HostName } else { $alias }
-                $script:_LastSelectedAlias = $alias
-                return $addr
+        # Esc throws OperationCanceledException up to the caller: it cancels the operation.
+        $selected = Select-FromList -Items $labels -Prompt "Select remote host  (or type an IP / hostname)"
+        if ($selected) {
+            $alias = ($selected -split '\s+\(')[0].Trim()
+            $h     = $hosts | Where-Object { $_.Alias -eq $alias } | Select-Object -First 1
+            if (-not $h -and $selected -notmatch '^\d{1,3}(\.\d{1,3}){0,3}$') {
+                # Typed filter text that narrowed the list to exactly one host
+                # (not digits/IPs: those are an address, e.g. the "10" subnet shorthand).
+                $hits = @(for ($i = 0; $i -lt $labels.Count; $i++) { if ($labels[$i].Contains($selected)) { $hosts[$i] } })
+                if ($hits.Count -eq 1) { $h = $hits[0]; $alias = $h.Alias }
             }
-        } catch [System.OperationCanceledException] { }
+            if ($h) {
+                $script:_LastSelectedAlias = $h.Alias
+                return $(if ($h.HostName) { $h.HostName } else { $h.Alias })
+            }
+            $RemoteHost = $selected   # typed text that isn't a configured host: use it as the address
+        }
     }
 
-    $RemoteHost = Read-ColoredInput -Prompt "  Enter remote IP / hostname (or last 1-3 digits for $SubnetPrefix.xx)" -ForegroundColor "Cyan"
+    if (-not $RemoteHost) {
+        $RemoteHost = Read-ColoredInput -Prompt "  Enter remote IP / hostname (or last 1-3 digits for $SubnetPrefix.xx)" -ForegroundColor "Cyan"
+    }
     if ([string]::IsNullOrWhiteSpace($RemoteHost)) {
         Write-Host "  No input provided." -ForegroundColor Red
         return $null
