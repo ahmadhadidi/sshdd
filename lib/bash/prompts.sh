@@ -318,18 +318,29 @@ read_remote_host_address() {
         select_from_list -p "Select remote host  (Esc = enter manually)" "${_dot_entries[@]}"
         (( _SELECT_CANCELLED )) && return 1
         if [[ -n $_SELECT_RESULT ]]; then
-            local _sel_disp="$_SELECT_RESULT"
+            local _sel_disp="$_SELECT_RESULT" _hit=-1 _nhit=0
+            # Highlighted entry, or typed text equal to an alias.
             for (( _pi=0; _pi<${#_dot_entries[@]}; _pi++ )); do
-                if [[ "${_dot_entries[$_pi]}" == "$_sel_disp" ]]; then
-                    _LAST_SELECTED_ALIAS="${host_aliases[$_pi]}"
-                    if [[ -n "${host_ips[$_pi]}" ]]; then
-                        printf '%s' "${host_ips[$_pi]}"
-                    else
-                        printf '%s' "${host_aliases[$_pi]}"
-                    fi
-                    return 0
+                if [[ "${_dot_entries[$_pi]}" == "$_sel_disp" || "${host_aliases[$_pi]}" == "$_sel_disp" ]]; then
+                    _hit=$_pi; break
                 fi
             done
+            # Typed filter text that narrowed the list to exactly one host.
+            if (( _hit < 0 )); then
+                for (( _pi=0; _pi<${#host_entries[@]}; _pi++ )); do
+                    [[ "${host_entries[$_pi]}" == *"$_sel_disp"* ]] && { _hit=$_pi; (( _nhit++ )); }
+                done
+                (( _nhit == 1 )) || _hit=-1
+            fi
+            if (( _hit >= 0 )); then
+                _LAST_SELECTED_ALIAS="${host_aliases[$_hit]}"
+                if [[ -n "${host_ips[$_hit]}" ]]; then
+                    printf '%s' "${host_ips[$_hit]}"
+                else
+                    printf '%s' "${host_aliases[$_hit]}"
+                fi
+                return 0
+            fi
         fi
     fi
 
@@ -500,9 +511,17 @@ get_public_key() {
 
 # Given an IP/address and user, return "user@alias" if a matching Host block exists,
 # or fall back to "user@address".
+# Several Host blocks can share one HostName: when ADDR is the host the user just picked,
+# the alias they picked (_REMOTE_ALIAS from _prompt_remote) wins over the first match.
 resolve_ssh_target() {
-    local addr="$1" user="$2"
+    local addr="$1" user="$2" picked=""
+    [[ -n ${_REMOTE_ALIAS:-} && $addr == "${_REMOTE_HOST:-}" ]] && picked="$_REMOTE_ALIAS"
     if [[ -f "$SSH_CONFIG" ]]; then
+        if [[ -n $picked ]] && get_configured_ssh_hosts | awk -F'|' -v a="$picked" '$1 == a { f=1 } END { exit !f }'; then
+            printf '  \e[90mSSH config entry '\''%s'\'' will be used.\e[0m\n' "$picked" >&2
+            printf '%s@%s' "$user" "$picked"
+            return 0
+        fi
         while IFS='|' read -r alias hn _; do
             if [[ $alias == "$addr" ]]; then
                 printf '  \e[90mSSH config entry '\''%s'\'' will be used.\e[0m\n' "$alias" >&2

@@ -98,13 +98,19 @@ function Resolve-SSHTarget {
     if (Test-Path $configPath) {
         $config  = Get-Content $configPath -Raw -Encoding UTF8
         $pattern = "(?ms)^Host\s+(\S+).*?(?=^Host\s|\z)"
+        # Several Host blocks can share one HostName: the alias the user just picked wins.
+        if ($script:_RemoteAlias -and $RemoteHostAddress -eq $script:_RemoteHost -and
+            (Get-ConfiguredSSHHosts | Where-Object { $_.Alias -eq $script:_RemoteAlias })) {
+            Write-Out 'dim' "SSH config entry '$($script:_RemoteAlias)' will be used."
+            return "$RemoteUser@$($script:_RemoteAlias)"
+        }
         foreach ($hb in [regex]::Matches($config, $pattern)) {
             $alias = $hb.Groups[1].Value.Trim()
             if ($alias -eq $RemoteHostAddress) {
                 Write-Out 'dim' "SSH config entry '$alias' will be used."
                 return "$RemoteUser@$alias"
             }
-            if ($hb.Value -match "(?m)^\s*HostName\s+$([regex]::Escape($RemoteHostAddress))\s*$") {
+            if ($hb.Value -match "(?m)^\s*HostName(?:\s*=\s*|\s+)$([regex]::Escape($RemoteHostAddress))\s*$") {
                 Write-Out 'dim' "SSH config entry '$alias' found for $RemoteHostAddress — key from config will be used."
                 return "$RemoteUser@$alias"
             }

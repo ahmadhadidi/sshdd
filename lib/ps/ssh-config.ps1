@@ -40,8 +40,8 @@ function Get-ConfiguredSSHHosts {
     foreach ($hb in [regex]::Matches($config, $pattern)) {
         $alias = $hb.Groups[1].Value.Trim()
         if ($alias -eq "*") { continue }
-        $hn = if ($hb.Value -match '(?m)^\s*HostName\s+(\S+)') { $Matches[1] } else { "" }
-        $u  = if ($hb.Value -match '(?m)^\s*User\s+(\S+)')     { $Matches[1] } else { "" }
+        $hn = if ($hb.Value -match '(?m)^\s*HostName(?:\s*=\s*|\s+)(\S+)') { $Matches[1] } else { "" }
+        $u  = if ($hb.Value -match '(?m)^\s*User(?:\s*=\s*|\s+)(\S+)')     { $Matches[1] } else { "" }
         $hosts += [pscustomobject]@{ Alias = $alias; HostName = $hn; User = $u }
     }
     return $hosts
@@ -59,13 +59,13 @@ function Get-IdentityFilesForHost {
     $block  = [regex]::Match($cfgRaw, "(?ms)^Host\s+$aliasE\b.*?(?=^Host\s|\z)").Value
     if (-not $block) {
         foreach ($hb in [regex]::Matches($cfgRaw, "(?ms)^Host\s+(\S+).*?(?=^Host\s|\z)")) {
-            if ($hb.Value -match "(?m)^\s*HostName\s+$([regex]::Escape($AliasOrAddress))\s*$") {
+            if ($hb.Value -match "(?m)^\s*HostName(?:\s*=\s*|\s+)$([regex]::Escape($AliasOrAddress))\s*$") {
                 $block = $hb.Value; break
             }
         }
     }
     if (-not $block) { return @() }
-    return @([regex]::Matches($block, '(?m)^\s*IdentityFile\s+(.+?)\s*$') |
+    return @([regex]::Matches($block, '(?m)^\s*IdentityFile(?:\s*=\s*|\s+)(.+?)\s*$') |
              ForEach-Object { $_.Groups[1].Value.Trim().Trim('"') })
 }
 
@@ -159,7 +159,7 @@ function Get-IPAddressFromHostConfigEntry {
         Write-Host "  No Host block found for '$RemoteHostName'" -ForegroundColor Yellow
         return $null
     }
-    if ($match.Value -match 'HostName\s+([^\s]+)') { return $matches[1] }
+    if ($match.Value -match '(?m)^\s*HostName(?:\s*=\s*|\s+)(\S+)') { return $matches[1] }
     Write-Host "  No HostName defined in Host '$RemoteHostName'" -ForegroundColor Yellow
     return $null
 }
@@ -187,7 +187,7 @@ function Get-RemoteUserFromConfigEntry {
         Write-Host "  No Host block found for '$RemoteHostName'" -ForegroundColor Yellow
         return $null
     }
-    if ($match.Value -match 'User\s+([^\s]+)') { return $matches[1] }
+    if ($match.Value -match '(?m)^\s*User(?:\s*=\s*|\s+)(\S+)') { return $matches[1] }
     Write-Host "  No User defined in Host '$RemoteHostName'" -ForegroundColor Yellow
     return $null
 }

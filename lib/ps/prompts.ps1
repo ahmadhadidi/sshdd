@@ -46,6 +46,11 @@ function Read-RemoteHostAddress {
             if ($selected) {
                 $alias = ($selected -split '\s+\(')[0].Trim()
                 $h     = $hosts | Where-Object { $_.Alias -eq $alias } | Select-Object -First 1
+                if (-not $h) {
+                    # Typed filter text that narrowed the list to exactly one host.
+                    $hits = @(for ($i = 0; $i -lt $labels.Count; $i++) { if ($labels[$i].Contains($selected)) { $hosts[$i] } })
+                    if ($hits.Count -eq 1) { $h = $hits[0]; $alias = $h.Alias }
+                }
                 $addr  = if ($h -and $h.HostName) { $h.HostName } else { $alias }
                 $script:_LastSelectedAlias = $alias
                 return $addr

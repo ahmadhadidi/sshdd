@@ -14,12 +14,13 @@ _SSH_CONFIG_SH_LOADED=1
 get_configured_ssh_hosts() {
     [[ -f "$SSH_CONFIG" ]] || return 0
     awk '
-        /^Host[[:space:]]/ {
+        { l=$0; sub(/^[ \t]+/, "", l); split(l, a, /[ \t=]+/); k=tolower(a[1]) }
+        k == "host" {
             if (alias != "" && alias != "*") print alias "|" hn "|" user
-            alias=$2; hn=""; user=""
+            alias=a[2]; hn=""; user=""
         }
-        /^[[:space:]]*HostName[[:space:]]/ { hn=$2 }
-        /^[[:space:]]*User[[:space:]]/     { user=$2 }
+        k == "hostname" { hn=a[2] }
+        k == "user"     { user=a[2] }
         END { if (alias != "" && alias != "*") print alias "|" hn "|" user }
     ' "$SSH_CONFIG"
 }
@@ -67,13 +68,11 @@ get_identity_files_for_host() {
     # If no alias match, search by HostName value
     if [[ -z $block ]]; then
         block=$(awk -v tgt="$target" '
-            /^Host[[:space:]]/ { alias=$2; in_block=1; block="" }
-            in_block { block=block $0 "\n" }
-            /^[[:space:]]*HostName[[:space:]]/ && in_block && $2==tgt {
-                found=block
-            }
-            /^$/ && in_block { in_block=0 }
-            END { if (found) printf "%s", found }
+            { l=$0; sub(/^[ \t]+/, "", l); split(l, a, /[ \t=]+/); k=tolower(a[1]) }
+            k == "host" { if (hit) exit; block="" }
+            { block=block $0 "\n" }
+            k == "hostname" && a[2]==tgt { hit=1 }
+            END { if (hit) printf "%s", block }
         ' "$SSH_CONFIG" 2>/dev/null || true)
     fi
 
@@ -98,11 +97,18 @@ get_hosts_using_key() {
 }
 
 # Extract a single field value from a host block.
+# Keyword match is case-insensitive and accepts "Key value" or "Key=value" (ssh_config syntax).
+# Pure awk: BSD sed (macOS) has no portable case-insensitive s///i flag.
 _block_field() {
     local field="$1" block="$2"
-    printf '%s\n' "$block" | \
-        grep -m1 -iE "^[[:space:]]*${field}[[:space:]]+" | \
-        sed -E "s/^[[:space:]]*${field}[[:space:]]+//i; s/[[:space:]]+$//"
+    printf '%s\n' "$block" | awk -v f="$field" '
+        {
+            line = $0; sub(/^[ \t]+/, "", line)
+            if (!match(line, /[ \t]*[ \t=][ \t]*/)) next
+            if (tolower(substr(line, 1, RSTART - 1)) != tolower(f)) next
+            v = substr(line, RSTART + RLENGTH); sub(/[ \t\r]+$/, "", v)
+            print v; exit
+        }'
 }
 
 # Return the Host alias whose HostName matches a given IP/hostname.
@@ -110,8 +116,9 @@ get_alias_for_host_ip() {
     local ip="$1"
     [[ -z $ip || ! -f "$SSH_CONFIG" ]] && return 0
     awk -v tgt="$ip" '
-        /^Host[[:space:]]/ { alias=$2 }
-        /^[[:space:]]*HostName[[:space:]]/ && $2==tgt { print alias; exit }
+        { l=$0; sub(/^[ \t]+/, "", l); split(l, a, /[ \t=]+/); k=tolower(a[1]) }
+        k == "host" { alias=a[2] }
+        k == "hostname" && a[2]==tgt { print alias; exit }
     ' "$SSH_CONFIG" 2>/dev/null
 }
 

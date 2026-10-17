@@ -88,7 +88,7 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 
 - `Add-SSHKeyInHost`:9 `KeyName Comment` — prompts passphrase via `Read-Host -AsSecureString` (masked); runs `ssh-keygen -t ed25519` via `Invoke-Expression`; key name and comment must not contain shell-special characters
 - `Add-SSHKeyToHostConfig`:40 `KeyName RemoteHostName RemoteHostAddress RemoteUser` — if block exists: inserts `IdentityFile` after the last existing one (or after the `Host` line if none); skips if already present. If block absent: appends a new block at EOF.
-- `Resolve-SSHTarget`:89 `RemoteHostAddress RemoteUser` — returns `user@alias` if a config block exists (by alias or HostName match), so SSH applies the full block (including `ServerAliveInterval`, `ForwardAgent`, etc.); falls back to `user@IP`
+- `Resolve-SSHTarget`:89 `RemoteHostAddress RemoteUser` — prefers `$script:_RemoteAlias` when the address is `$script:_RemoteHost` (several blocks may share an IP); otherwise returns `user@alias` if a config block exists (by alias or HostName match), so SSH applies the full block (including `ServerAliveInterval`, `ForwardAgent`, etc.); falls back to `user@IP`
 - `Install-SSHKeyOnRemote`:117 `KeyName` — copies public key to remote `authorized_keys`, then prompts for alias and calls `Add-SSHKeyToHostConfig`
 - `Register-RemoteHostConfig`:161 — connects to a not-yet-configured host, reads `authorized_keys`, matches against local `.pub` files, creates a config block
 - `Deploy-SSHKeyToRemote`:219 `KeyName` — generates if missing (`Add-SSHKeyInHost`), then installs (`Install-SSHKeyOnRemote`)

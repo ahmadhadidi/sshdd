@@ -29,7 +29,7 @@ This explicitly includes real state in remote hosts (`authorized_keys`) and the 
 - The suite drives the real TUI through pexpect (`tests/conftest.py`); run it from the repo root, not from `tests/`.
 - `-m lxc` tests need the live test LXC (192.168.0.213); they are skipped in the pre-commit hook. Run them only when the change touches remote operations.
 - The pre-commit hook (`.git/hooks/pre-commit`) runs `make check`-style syntax checks, refreshes line numbers in `CLAUDE.md` and runs the non-LXC tests.
-- No PowerShell on the dev CT: `lib/ps/` changes can't be run here; say so in the report.
+- `pwsh` is installed on dev-poc: PowerShell functions can be unit-tested by dot-sourcing `lib/ps/*.ps1` with `$env:USERPROFILE` pointed at a temp dir (see `tests/test_ssh_config_parse.py`). The PS TUI itself isn't driven by the suite.
 
 <!-- Document known quirks specific to this codebase here as they're discovered (e.g. "schema/migration changes require a full dev-server restart, not just hot-reload"). Delete this comment once populated; keep appending as new quirks surface rather than letting them live only in a session transcript. -->
 

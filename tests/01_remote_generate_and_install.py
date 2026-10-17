@@ -18,6 +18,8 @@ import time
 import pexpect
 import pytest
 
+from .test_lxc_connection import _add_host_block, _remove_host_block
+
 pytestmark = pytest.mark.lxc
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ LXC_USER = "testuser"
 LXC_PASS = "testpass"
 
 SSH_DIR = os.path.expanduser("~/.ssh")
+LXC_ALIAS = "sshdd-e2e-gi"  # temporary Host block, added and removed by the fixture
 
 ENTER = "\r"
 
@@ -108,6 +111,14 @@ def _run_tui() -> pexpect.spawn:
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def lxc_host_block():
+    _remove_host_block(LXC_ALIAS)
+    _add_host_block(LXC_ALIAS, LXC_HOST, LXC_USER)
+    yield
+    _remove_host_block(LXC_ALIAS)
+
+
 @pytest.fixture
 def gi_nopass():
     key = "gi-nopass"
@@ -158,7 +169,7 @@ def _navigate_gen_install(child: pexpect.spawn, key_name: str, passphrase: str):
     #    through to manual entry (non-strict select_from_list creates from filter text)
     child.expect("Select remote host", timeout=10)
     time.sleep(0.15)
-    child.send("sshdd-test")
+    child.send(LXC_ALIAS)
     time.sleep(0.2)
     child.send(ENTER)
 
@@ -171,7 +182,7 @@ def _navigate_gen_install(child: pexpect.spawn, key_name: str, passphrase: str):
 def _complete_install(child: pexpect.spawn):
     """
     Handle the SSH installation step:
-      - If existing keys in the sshdd-test config block are authorized, SSH
+      - If existing keys in the temporary config block are authorized, SSH
         connects silently and no password prompt appears.
       - Otherwise the TUI's askpass script prompts for the LXC password.
     Then decline adding IdentityFile (to avoid modifying ~/.ssh/config) and
@@ -202,7 +213,7 @@ def _complete_install(child: pexpect.spawn):
 
 
 def test_gen_install_passphraseless(gi_nopass):
-    """G → gi-nopass (no passphrase) → sshdd-test → SSH Public Key installed successfully."""
+    """G → gi-nopass (no passphrase) → LXC_ALIAS → SSH Public Key installed successfully."""
     child = _run_tui()
     _navigate_gen_install(child, gi_nopass, "")
     _complete_install(child)
@@ -212,7 +223,7 @@ def test_gen_install_passphraseless(gi_nopass):
 
 
 def test_gen_install_passphrased(gi_passphrase):
-    """G → gi-passphrase (passphrase = testpass123) → sshdd-test → installed successfully."""
+    """G → gi-passphrase (passphrase = testpass123) → LXC_ALIAS → installed successfully."""
     child = _run_tui()
     _navigate_gen_install(child, gi_passphrase, "testpass123")
     _complete_install(child)
