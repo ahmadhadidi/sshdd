@@ -9,14 +9,20 @@ Interactive TUI for SSH keys: generate, deploy, test, rotate, and keep `~/.ssh/c
 ### Run from the cloud
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"
+bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) \
+  --user myuser \
+  --subnet 192.168.0 \
+  --comment-suffix "-[my-machine]"
 ```
 
 ### Run locally
 
 ```bash
 git clone https://github.com/ahmadhadidi/sshdd.git ~/sshdd
-bash ~/sshdd/sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"
+bash ~/sshdd/sshdd.sh \
+  --user myuser \
+  --subnet 192.168.0 \
+  --comment-suffix "-[my-machine]"
 ```
 
 ### Alias
@@ -24,8 +30,17 @@ bash ~/sshdd/sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[my-ma
 Add one to `~/.bashrc` (or `~/.zshrc`):
 
 ```bash
-alias sshdd='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"'  # cloud
-alias sshdd='bash ~/sshdd/sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"'  # local
+# cloud
+alias sshdd='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) \
+  --user myuser \
+  --subnet 192.168.0 \
+  --comment-suffix "-[my-machine]"'
+
+# local
+alias sshdd='bash ~/sshdd/sshdd.sh \
+  --user myuser \
+  --subnet 192.168.0 \
+  --comment-suffix "-[my-machine]"'
 ```
 
 Then just run `sshdd` (extra options still pass through, e.g. `sshdd --verbose`).
@@ -47,14 +62,20 @@ Then just run `sshdd` (extra options still pass through, e.g. `sshdd --verbose`)
 ### Run from the cloud
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]"
+& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) `
+  -DefaultUserName myuser `
+  -DefaultSubnetPrefix 192.168.0 `
+  -DefaultCommentSuffix "-[my-machine]"
 ```
 
 ### Run locally
 
 ```powershell
 git clone https://github.com/ahmadhadidi/sshdd.git $HOME\sshdd
-& $HOME\sshdd\sshdd.ps1 -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]"
+& $HOME\sshdd\sshdd.ps1 `
+  -DefaultUserName myuser `
+  -DefaultSubnetPrefix 192.168.0 `
+  -DefaultCommentSuffix "-[my-machine]"
 ```
 
 ### Alias
@@ -62,8 +83,23 @@ git clone https://github.com/ahmadhadidi/sshdd.git $HOME\sshdd
 Add one to your profile (`notepad $PROFILE`):
 
 ```powershell
-function sshdd { & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]" @args }  # cloud
-function sshdd { & "$HOME\sshdd\sshdd.ps1" -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix "-[my-machine]" @args }  # local
+# cloud
+function sshdd {
+  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"))) `
+    -DefaultUserName myuser `
+    -DefaultSubnetPrefix 192.168.0 `
+    -DefaultCommentSuffix "-[my-machine]" `
+    @args
+}
+
+# local
+function sshdd {
+  & "$HOME\sshdd\sshdd.ps1" `
+    -DefaultUserName myuser `
+    -DefaultSubnetPrefix 192.168.0 `
+    -DefaultCommentSuffix "-[my-machine]" `
+    @args
+}
 ```
 
 Then just run `sshdd`.
