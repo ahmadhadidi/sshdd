@@ -7,13 +7,13 @@ param(
 # SSH Key Manager — PowerShell entry point
 #
 # Usage (local):
-#   .\sshhdd.ps1 [-DefaultUserName user] [-DefaultSubnetPrefix 192.168.0] ...
+#   .\sshdd.ps1 [-DefaultUserName user] [-DefaultSubnetPrefix 192.168.0] ...
 #
 # Usage (remote — no params, uses defaults):
-#   irm "https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main/sshhdd.ps1" | iex
+#   irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1" | iex
 #
 # Usage (remote — with params):
-#   $u = "https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main/sshhdd.ps1"
+#   $u = "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1"
 #   & ([scriptblock]::Create((irm $u))) -DefaultUserName "myuser" -DefaultSubnetPrefix "10.0.0"
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -26,7 +26,7 @@ $script:_OpBannerBuf       = ""
 $script:_OpBannerRows      = 0
 
 # ── Library loader ────────────────────────────────────────────────────────────
-$_BASE_URL  = "https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main"
+$_BASE_URL  = "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main"
 $_SCRIPT_DIR = ""
 if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "lib\ps"))) {
     $_SCRIPT_DIR = $PSScriptRoot

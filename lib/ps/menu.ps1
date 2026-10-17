@@ -1,5 +1,5 @@
 # lib/ps/menu.ps1 — Menu dispatcher and all menu case handlers
-# Dot-sourced by sshhdd.ps1 — do not execute directly.
+# Dot-sourced by sshdd.ps1 — do not execute directly.
 # EXPORTS: Invoke-MenuChoice
 #   handlers: _MenuGenerateAndInstall  _MenuInstallKey  _MenuTestConnection
 #             _MenuDeleteRemoteKey  _MenuPromoteKey  _MenuGenerateKey
@@ -314,7 +314,7 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         }
 
         # ── Persist commands (4 methods) ────────────────────────────────────
-        $rawUrl = "https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main"
+        $rawUrl = "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main"
         $bf = ""; $pf = ""
         $uVal = (Get-Variable -Name "DefaultUserName"      -Scope Script -EA SilentlyContinue).Value
         $sVal = (Get-Variable -Name "DefaultSubnetPrefix"  -Scope Script -EA SilentlyContinue).Value
@@ -326,10 +326,10 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         if ($pVal) { $bf += " --password `"$pVal`"";       $pf += " -DefaultPassword `"$pVal`"" }
 
         $maxCw = $tw - 6
-        $c1 = "bash <(curl -fsSL $rawUrl/sshhdd.sh)$bf"
-        $c2 = "bash sshhdd.sh$bf"
-        $c3 = "`$sb=[scriptblock]::Create((irm `"$rawUrl/sshhdd.ps1`")); & `$sb$pf"
-        $c4 = "& ./sshhdd.ps1$pf"
+        $c1 = "bash <(curl -fsSL $rawUrl/sshdd.sh)$bf"
+        $c2 = "bash sshdd.sh$bf"
+        $c3 = "`$sb=[scriptblock]::Create((irm `"$rawUrl/sshdd.ps1`")); & `$sb$pf"
+        $c4 = "& ./sshdd.ps1$pf"
         if ($c1.Length -gt $maxCw) { $c1 = $c1.Substring(0, $maxCw - 3) + "..." }
         if ($c2.Length -gt $maxCw) { $c2 = $c2.Substring(0, $maxCw - 3) + "..." }
         if ($c3.Length -gt $maxCw) { $c3 = $c3.Substring(0, $maxCw - 3) + "..." }

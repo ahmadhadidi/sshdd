@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# sshhdd.sh — SSH Key Manager TUI
+# sshdd.sh — SSH Key Manager TUI
 #
 # Usage:
-#   bash sshhdd.sh [OPTIONS]
-#   bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main/sshhdd.sh) [OPTIONS]
+#   bash sshdd.sh [OPTIONS]
+#   bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh) [OPTIONS]
 #
 # Options:
 #   --user NAME           Default remote username        (default: default_non_root_username)
 #   --subnet PREFIX       Default subnet prefix          (default: 192.168.0)
 #   --comment-suffix STR  Default key comment suffix     (default: -[my-machine])
 #   --password PASS       Default SSH password for sshpass
-#   --verbose             Log debug info to /tmp/ssh-key-manager-debug.log
+#   --verbose             Log debug info to /tmp/sshdd-debug.log
 
 set -uo pipefail
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
@@ -44,13 +44,13 @@ _LAST_SELECTED_ALIAS=""
 KEY=""
 _SELECT_RESULT=""
 _SELECT_CANCELLED=0
-_LOG_FILE="/tmp/ssh-key-manager-debug.log"
+_LOG_FILE="/tmp/sshdd-debug.log"
 _STTY_SAVED=""   # global so _menu_cleanup can always access it
 _HOST_BLOCK=""   # set by _get_host_block
 _CONFIG_MISSING=0  # set to 1 when ~/.ssh/config does not exist
 
 # ─── Library loader ──────────────────────────────────────────────────────────
-_BASE_URL="https://raw.githubusercontent.com/ahmadhadidi/ssh-key-manager/refs/heads/main"
+_BASE_URL="https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main"
 
 # Determine script directory (empty when run via bash <(curl ...))
 _SCRIPT_DIR=""
@@ -70,9 +70,9 @@ _source_lib() {
         # Use a temp file to avoid nested process substitution FD conflicts
         # (nested source <(curl ...) inside bash <(curl ...) fails on macOS)
         local tmp
-        tmp="$(mktemp /tmp/ssh-key-manager-XXXXXX.sh 2>/dev/null \
+        tmp="$(mktemp /tmp/sshdd-XXXXXX.sh 2>/dev/null \
                || mktemp 2>/dev/null \
-               || printf '/tmp/sshhdd-%s-%s.sh' "$$" "$name")"
+               || printf '/tmp/sshdd-%s-%s.sh' "$$" "$name")"
         if curl -fsSL "${_BASE_URL}/lib/bash/${name}.sh" -o "$tmp" 2>/dev/null \
            && [[ -s "$tmp" ]]; then
             # shellcheck source=/dev/null
