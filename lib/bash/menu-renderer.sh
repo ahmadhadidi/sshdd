@@ -135,7 +135,13 @@ show_main_menu() {
     _menu_cleanup() {
         (( _MENU_CLEANED_UP )) && return 0
         _MENU_CLEANED_UP=1
+        # Background helpers (host probes, spinner) and temp files must not outlive sshdd.
+        # CONT after TERM: after Ctrl+Z they are stopped and would ignore TERM.
+        local _job
+        for _job in $(jobs -p); do kill "$_job" 2>/dev/null; kill -CONT "$_job" 2>/dev/null; done
         _spin_stop 2>/dev/null || true
+        _destroy_askpass 2>/dev/null || true
+        (( ${#_CLEANUP_PATHS[@]} )) && rm -f "${_CLEANUP_PATHS[@]}" 2>/dev/null
         # Clear the alternate screen before leaving so no content bleeds through,
         # then restore cursor visibility and switch back to the normal screen.
         printf '\e[?25h\e[2J\e[H\e[?1049l' >/dev/tty 2>/dev/null || \
@@ -148,6 +154,7 @@ show_main_menu() {
     trap '_menu_cleanup' EXIT
     trap 'exit 130' INT
     trap 'exit 0'   TERM TSTP
+    trap 'exit 129' HUP      # terminal closed / SSH dropped
     trap 'need_full=1' WINCH
 
     # ── Startup config file check ────────────────────────────────────────────
@@ -375,5 +382,5 @@ show_main_menu() {
     done
 
     _menu_cleanup
-    trap - EXIT INT TERM TSTP WINCH
+    trap - EXIT INT TERM TSTP HUP WINCH
 }

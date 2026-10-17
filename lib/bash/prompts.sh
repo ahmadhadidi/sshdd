@@ -278,7 +278,7 @@ read_remote_host_address() {
         for (( _pi=0; _pi<${#host_ips[@]}; _pi++ )); do
             _pf=$(mktemp /tmp/.hprobe-XXXXXX 2>/dev/null || \
                   printf '/tmp/.hprobe-%s-%d' "$$" "$_pi")
-            _probe_files+=("$_pf")
+            _probe_files+=("$_pf"); _cleanup_add "$_pf"
             ( timeout 2 bash -c "echo >/dev/tcp/${host_ips[$_pi]}/22" 2>/dev/null \
                 && printf 1 || printf 0 ) > "$_pf" &
             _probe_pids+=($!)

@@ -211,7 +211,10 @@ _spin_start() {
 
 _spin_stop() {
     if [[ -n ${_SPIN_PID:-} ]]; then
+        # CONT after TERM: Ctrl+Z stops the whole process group, and a stopped job never
+        # acts on TERM, so the wait would hang (TODO #10).
         kill "$_SPIN_PID" 2>/dev/null || true
+        kill -CONT "$_SPIN_PID" 2>/dev/null || true
         wait "$_SPIN_PID" 2>/dev/null || true
         _SPIN_PID=''
     fi
@@ -250,11 +253,16 @@ _ssh_fence_close() {
         "$(_repeat '─' "$lw")" "$label" "$(_repeat '─' "$rw")"
 }
 
+# Temp files removed by _menu_cleanup however sshdd ends (Q, Ctrl+C/Z, kill, closed terminal). TODO #10.
+_CLEANUP_PATHS=()
+_cleanup_add() { _CLEANUP_PATHS+=("$@"); }
+
 # Create a temporary SSH_ASKPASS helper so password/passphrase prompts are
 # displayed with 2-space padding. Requires OpenSSH 8.4+ (SSH_ASKPASS_REQUIRE=force).
 # Call _destroy_askpass when the SSH operation completes.
 _setup_askpass() {
     _ASKPASS_TMP=$(mktemp /tmp/.ssh-askpass-XXXXXX 2>/dev/null) || return 0
+    _cleanup_add "$_ASKPASS_TMP"
     chmod 700 "$_ASKPASS_TMP"
     cat > "$_ASKPASS_TMP" << 'ASKPASS_SCRIPT'
 #!/bin/bash
@@ -327,6 +335,7 @@ _prompt_remote() {
     # sharing the same IP cause get_alias_for_host_ip to return the wrong alias.
     local _rha_out
     _rha_out=$(mktemp) || return 1
+    _cleanup_add "$_rha_out"
     read_remote_host_address "$DEFAULT_SUBNET_PREFIX" > "$_rha_out" || { rm -f "$_rha_out"; return 1; }
     _REMOTE_HOST=$(<"$_rha_out")
     rm -f "$_rha_out"
