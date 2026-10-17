@@ -62,7 +62,7 @@ function Show-MainMenu {
                 $termHeight = $Host.UI.RawUI.WindowSize.Height
 
                 $menuRule     = ([char]0x2500).ToString() * [Math]::Max(0, $termWidth - 4)
-                $menuTitle    = "🌊 HDD SSH Keys Manager"
+                $menuTitle    = "🌊 SSHDD -- axc.sh"
                 $menuTitlePad = " " * [Math]::Max(0, [int](($termWidth - 4 - ($menuTitle.Length + 1)) / 2))
 
                 # Content rows: 5..(termHeight-2). Two-row hint bar: termHeight-1 and termHeight.

@@ -50,7 +50,7 @@ def test_ctrl_c_exits_cleanly(run_tui):
 
 def test_esc_ignored_at_main_menu(run_tui):
     """ESC at the main menu is a no-op; the process does not exit until Q."""
-    child = run_tui()  # fixture already synced to "HDD SSH Keys Manager"
+    child = run_tui()  # fixture already synced to "SSHDD -- axc.sh"
     child.send(ESC)
     time.sleep(0.3)
     # Process should still be running (isalive=True); Q terminates it.
@@ -70,7 +70,7 @@ def test_empty_key_name_shows_required_error(run_tui_no_keys):
     child.send(ENTER)                            # empty → should loop
     child.expect("required", timeout=5)
     child.send(ESC)                              # cancel out
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)
@@ -85,7 +85,7 @@ def test_backspace_at_empty_input_no_crash(run_tui_no_keys):
     child.send("\x7f\x7f\x7f")                  # DEL × 3 on empty buffer
     time.sleep(0.1)
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)
@@ -101,7 +101,7 @@ def test_ctrl_w_at_empty_input_no_crash(run_tui_no_keys):
     child.send(CTRL_W)
     time.sleep(0.1)
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)
@@ -123,7 +123,7 @@ def test_ctrl_w_deletes_word(run_tui_no_keys):
     child.send(ENTER)
     child.expect("required", timeout=5)
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)
@@ -149,7 +149,7 @@ def test_non_printable_chars_filtered(run_tui_no_keys):
     child.send("\t\x00test")
     time.sleep(0.1)
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)

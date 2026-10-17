@@ -9,7 +9,7 @@ def test_config_view_file(run_tui):
     child.expect("View Config", timeout=5)
     time.sleep(0.2)
     child.send("Q")
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)

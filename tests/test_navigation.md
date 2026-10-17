@@ -54,7 +54,7 @@ For each row:
 1. With the main menu visible, press the hotkey.
 2. Verify the operation header appears (teal box at the top).
 3. Press **ESC**.
-4. Verify "HDD SSH Keys Manager" title is visible again.
+4. Verify "SSHDD -- axc.sh" title is visible again.
 5. Wait 150 ms before pressing the next hotkey.
 
 **Expected:** Every hotkey reaches the correct screen; ESC always returns to main menu.

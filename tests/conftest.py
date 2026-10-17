@@ -17,7 +17,7 @@ def run_tui():
         child.setwinsize(40, 100)
         child.logfile = sys.stdout
 
-        child.expect(["HDD SSH Keys Manager", "Quit"], timeout=10)
+        child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
 
         time.sleep(0.5)
         return child
@@ -51,7 +51,7 @@ def run_tui_no_keys(tmp_path):
         )
         child.setwinsize(40, 100)
         child.logfile = sys.stdout
-        child.expect(["HDD SSH Keys Manager", "Quit"], timeout=10)
+        child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
         time.sleep(0.5)
         return child
     return _run
@@ -63,5 +63,5 @@ def check_navigation():
         child.expect(expected_header)
         time.sleep(0.2)
         child.send("\x1b")  # ESC
-        child.expect("HDD SSH Keys Manager")
+        child.expect("SSHDD -- axc.sh")
     return _check

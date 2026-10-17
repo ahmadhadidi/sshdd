@@ -35,6 +35,29 @@ _invoke_choice() {
 
 # ─── Main menu ────────────────────────────────────────────────────────────────
 
+# Build a full-width reverse-video bar from KEY LABEL pairs into _HINT_BAR (no fork).
+# If it doesn't fit WIDTH, pairs are dropped from the middle; the last pair (Quit/Help) always stays,
+# so the bar never wraps onto a second row (a wrap scrolls the whole screen up).
+_hint_bar() {
+    local w="$1"; shift
+    local -a k=() l=()
+    while (( $# >= 2 )); do k+=("$1"); l+=("$2"); shift 2; done
+    local n=${#k[@]} keep=$(( ${#k[@]} - 1 )) i plain out
+    while :; do
+        plain="" out=""
+        for (( i=0; i<n; i++ )); do
+            (( i >= keep && i < n - 1 )) && continue
+            plain+="   ${k[$i]} ${l[$i]}"
+            out+=$'   \e[1m'"${k[$i]}"$'\e[0;7m '"${l[$i]}"
+        done
+        plain="  ${plain:3}"; out="  ${out:3}"
+        (( ${#plain} <= w || keep == 0 )) && break
+        (( keep-- ))
+    done
+    (( ${#plain} > w )) && { plain="${plain:0:w}"; out="$plain"; }
+    printf -v _HINT_BAR '\e[7m%s%*s\e[0m' "$out" "$(( w - ${#plain} ))" ""
+}
+
 show_main_menu() {
     local -a m_type=(
         header  item    item    item    item    item    item    item
@@ -145,7 +168,7 @@ show_main_menu() {
             local h_rule inner_pad
             printf -v h_rule   '%*s' "$inner_w" ''; h_rule="${h_rule// /─}"
             printf -v inner_pad '%*s' "$inner_w" ''
-            local menu_title="🌊 HDD SSH Keys Manager"
+            local menu_title="🌊 SSHDD -- axc.sh"
             local lbl_len; lbl_len=$(_visual_width "$menu_title")
             local lpad=$(( (inner_w - lbl_len) / 2 )); (( lpad < 0 )) && lpad=0
             local rpad=$(( inner_w - lbl_len - lpad )); (( rpad < 0 )) && rpad=0
@@ -221,16 +244,14 @@ show_main_menu() {
                 local wpad; wpad=$(_repeat ' ' "$(( term_w - ${#wmsg} > 0 ? term_w - ${#wmsg} : 0 ))")
                 f+="$(printf '\e[%d;1H\e[41m\e[1;97m%s%s\e[0m' "$(( term_h - 1 ))" "$wmsg" "$wpad")"
             else
-                local fmsg="  F1 Best Practices   F5 Conf Defaults   ? Help"
-                local fpad; fpad=$(_repeat ' ' "$(( term_w - ${#fmsg} > 0 ? term_w - ${#fmsg} : 0 ))")
-                f+="$(printf '\e[%d;1H\e[2m%s%s\e[0m' "$(( term_h - 1 ))" "$fmsg" "$fpad")"
+                # Same reverse-video style as the hint bar below it (TODO #2).
+                _hint_bar "$term_w" F1 "Best Practices" F5 "Conf Defaults" "?" Help
+                f+="$(printf '\e[%d;1H' "$(( term_h - 1 ))")$_HINT_BAR"
             fi
 
             # Single-row hint bar
-            local hn_plain="  Up/Dn Navigate   Enter Select   G Generate   T Test   D Delete   L List   Q Quit"
-            local hn; hn="$(printf '\e[7m  \e[1mUp/Dn\e[0;7m Navigate   \e[1mEnter\e[0;7m Select   \e[1mG\e[0;7m Generate   \e[1mT\e[0;7m Test   \e[1mD\e[0;7m Delete   \e[1mL\e[0;7m List   \e[1mQ\e[0;7m Quit')"
-            local hn_pad; hn_pad=$(_repeat ' ' "$(( term_w - ${#hn_plain} > 0 ? term_w - ${#hn_plain} : 0 ))")
-            f+="$(printf '\e[%d;1H%s%s\e[0m' "$term_h" "$hn" "$hn_pad")"
+            _hint_bar "$term_w" Up/Dn Navigate Enter Select G Generate T Test D Delete L List Q Quit
+            f+="$(printf '\e[%d;1H' "$term_h")$_HINT_BAR"
 
             printf '%s' "$f"
             prev_sel=$sel

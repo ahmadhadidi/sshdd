@@ -59,7 +59,7 @@ def test_full_menu_hotkey_loop(run_tui):
             # before sending the next hotkey to avoid the drain consuming it.
             child.send(ESC)
 
-        child.expect("HDD SSH Keys Manager", timeout=5)
+        child.expect("SSHDD -- axc.sh", timeout=5)
         time.sleep(0.15)
         print(f"  [OK] {key} → {header} → main menu")
 
@@ -86,7 +86,7 @@ def test_arrow_down_navigation(run_tui):
     print("  [OK] DOWN x2 + Enter → Test SSH Connection")
 
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     print("  [OK] ESC → main menu")
 
@@ -137,7 +137,7 @@ def test_enter_on_first_item(run_tui):
     time.sleep(0.2)
 
     child.send(ESC)
-    child.expect("HDD SSH Keys Manager", timeout=5)
+    child.expect("SSHDD -- axc.sh", timeout=5)
     time.sleep(0.15)
     print("  [OK] Enter on first item → Generate & Install")
 

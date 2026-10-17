@@ -161,6 +161,7 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 ### menu-renderer.sh
 
 - `_invoke_choice`:13 — clears screen, renders centered op title box, calls `invoke_menu_choice`, waits for ack. Sets `need_full=1` via bash dynamic scoping into `show_main_menu`'s local frame.
+- `_hint_bar` `WIDTH KEY LABEL...` — builds a full-width reverse-video bar into `_HINT_BAR` (no fork); drops pairs from the middle until it fits, the last pair always stays, so it never wraps (a wrap scrolls the screen). Used for both bottom bars.
 - `show_main_menu`:38 — scrolling viewport, differential rendering, hotkey support, resize detection. Alternate screen buffer (`\e[?1049h/l`).
 - `_menu_cleanup` — defined inside `show_main_menu`; restores terminal state; guarded by `_MENU_CLEANED_UP` flag to prevent double-execution on Ctrl+C (INT trap → `exit` → EXIT trap)
 
