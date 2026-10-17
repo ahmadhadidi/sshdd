@@ -137,7 +137,7 @@ Rules:
 - **"Always on" means a boot service** (`rc-update add … default` on Alpine, `systemctl enable` elsewhere) and `--onboot 1`, in the same change.
 - **Alpine:** `apk add` every command-line tool you call, never rely on a dependency (`acme.sh` pulled `aws-lc-tools` as `openssl` and broke). busybox `ash` has no bracketed paste: a pasted `read` takes the next pasted line as its answer, so wrap such blocks in `{ … }`.
 - CT provisioning procedure: the `lxc-bootstrap` skill (on the owner's claude.ai account, synced as `anthropic-skills:lxc-bootstrap`) if it's available.
-- Proxmox nodes, router and `.lan` proxy CT: not recorded yet; ask the owner.
+- Proxmox nodes: ho4 (`root@192.168.0.9`, standalone, key `~/.ssh/ho4-root` on dev-poc); dev-poc (204) runs on another node Claude can't reach (ask the owner). `ho4.lan` resolves to 192.168.0.101, not the node. Router and `.lan` proxy CT: not recorded yet.
 - LAN: `192.168.0.0/24`, gateway `192.168.0.1`, bridge `vmbr0`.
 - The CTID gives the IP's last octet and the MAC (`DE:AD:DE:AD:XX:YY`); CTIDs stay at or below 254.
-- CT 204 (`dev-poc`, 192.168.0.204) is Claude's own. CT 213 (192.168.0.213) is the sshdd test LXC (`-m lxc` tests write its `authorized_keys`). Never touch any other CT.
+- CT 204 (`dev-poc`, 192.168.0.204) is Claude's own. CT 213 (`sshdd-test` on ho4, 192.168.0.213, full clone of golden 324, onboot) is the sshdd test LXC (`-m lxc` tests write its `authorized_keys`; users `testuser` with password auth, `kraid` with `dev-lan.pub`). Never touch any other CT.
