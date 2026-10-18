@@ -22,13 +22,20 @@ from .test_lxc_connection import _add_host_block, _remove_host_block
 
 pytestmark = pytest.mark.lxc
 
+
+def _ssh_dir():
+    return os.path.join(os.environ["HOME"], ".ssh")   # temp HOME from conftest (T0)
+
+
+def _ssh_config():
+    return os.path.join(_ssh_dir(), "config")
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 LXC_HOST = "192.168.0.213"
 LXC_USER = "testuser"
 LXC_PASS = "testpass"
 
-SSH_DIR = os.path.expanduser("~/.ssh")
 LXC_ALIAS = "sshdd-e2e-gi"  # temporary Host block, added and removed by the fixture
 
 ENTER = "\r"
@@ -73,7 +80,7 @@ def _ssh_run(cmd: str, stdin_data: bytes = None, timeout: int = 15) -> subproces
 
 def _remove_key_from_lxc(key_name: str):
     """Remove the public key from LXC authorized_keys (no-op if not present)."""
-    pub_path = os.path.join(SSH_DIR, f"{key_name}.pub")
+    pub_path = os.path.join(_ssh_dir(), f"{key_name}.pub")
     if not os.path.exists(pub_path):
         return
     pubkey = open(pub_path).read().strip()
@@ -87,7 +94,7 @@ def _remove_key_from_lxc(key_name: str):
 def _remove_local_key(key_name: str):
     """Delete the local private and public key files."""
     for suffix in ["", ".pub"]:
-        p = os.path.join(SSH_DIR, f"{key_name}{suffix}")
+        p = os.path.join(_ssh_dir(), f"{key_name}{suffix}")
         if os.path.exists(p):
             os.remove(p)
 

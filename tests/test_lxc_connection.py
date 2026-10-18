@@ -21,6 +21,14 @@ import pytest
 
 pytestmark = pytest.mark.lxc
 
+
+def _ssh_dir():
+    return os.path.join(os.environ["HOME"], ".ssh")   # temp HOME from conftest (T0)
+
+
+def _ssh_config():
+    return os.path.join(_ssh_dir(), "config")
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 LXC_HOST  = "192.168.0.213"
@@ -29,8 +37,6 @@ LXC_PASS  = "testpass"
 LXC_ALIAS = "lxc-test"
 TEST_KEY  = "lxc-test-key"
 
-SSH_DIR    = os.path.expanduser("~/.ssh")
-SSH_CONFIG = os.path.join(SSH_DIR, "config")
 
 ESC   = "\x1b"
 ENTER = "\r"
@@ -67,7 +73,7 @@ def _ssh_run(cmd: str, stdin_data: bytes = None, timeout: int = 10) -> subproces
 
 def _deploy_key(key_name: str):
     """Append ~/.ssh/{key_name}.pub to LXC authorized_keys via password auth."""
-    pub = open(os.path.join(SSH_DIR, f"{key_name}.pub"), "rb").read()
+    pub = open(os.path.join(_ssh_dir(), f"{key_name}.pub"), "rb").read()
     result = _ssh_run(
         "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys",
         stdin_data=pub,
@@ -77,7 +83,7 @@ def _deploy_key(key_name: str):
 
 def _remove_key(key_name: str):
     """Remove public key from LXC authorized_keys."""
-    pub_path = os.path.join(SSH_DIR, f"{key_name}.pub")
+    pub_path = os.path.join(_ssh_dir(), f"{key_name}.pub")
     if not os.path.exists(pub_path):
         return
     pubkey = open(pub_path).read().strip()
@@ -91,7 +97,7 @@ def _remove_key(key_name: str):
 
 def _generate_key(key_name: str):
     """Generate a fresh ED25519 key pair in ~/.ssh/."""
-    priv = os.path.join(SSH_DIR, key_name)
+    priv = os.path.join(_ssh_dir(), key_name)
     for p in [priv, priv + ".pub"]:
         if os.path.exists(p):
             os.remove(p)
@@ -106,20 +112,20 @@ def _generate_key(key_name: str):
 def _add_host_block(alias: str, host: str, user: str, key_name: str = None):
     block = f"\nHost {alias}\n    HostName {host}\n    User {user}\n"
     if key_name:
-        block += f"    IdentityFile {SSH_DIR}/{key_name}\n"
-    with open(SSH_CONFIG, "a") as f:
+        block += f"    IdentityFile {_ssh_dir()}/{key_name}\n"
+    with open(_ssh_config(), "a") as f:
         f.write(block)
 
 
 def _remove_host_block(alias: str):
-    if not os.path.exists(SSH_CONFIG):
+    if not os.path.exists(_ssh_config()):
         return
-    with open(SSH_CONFIG) as f:
+    with open(_ssh_config()) as f:
         text = f.read()
     text = re.sub(
         rf'\nHost {re.escape(alias)}\n(?:[ \t]+[^\n]*\n)*', "", text
     )
-    with open(SSH_CONFIG, "w") as f:
+    with open(_ssh_config(), "w") as f:
         f.write(text)
 
 
@@ -148,7 +154,7 @@ def lxc_with_key():
     yield
     _remove_key(TEST_KEY)
     _remove_host_block(LXC_ALIAS)
-    for p in [os.path.join(SSH_DIR, TEST_KEY), os.path.join(SSH_DIR, TEST_KEY + ".pub")]:
+    for p in [os.path.join(_ssh_dir(), TEST_KEY), os.path.join(_ssh_dir(), TEST_KEY + ".pub")]:
         if os.path.exists(p):
             os.remove(p)
 

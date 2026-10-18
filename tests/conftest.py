@@ -1,10 +1,66 @@
 import pexpect
 import os
+import shutil
+import subprocess
 import pytest
 import sys
 import time
 
 BASH32 = "/proj/bash32/bin/bash"
+
+# ── T0/T1 (docs/TEST-PLAN.md): never touch the real ~/.ssh ─────────────────────
+REAL_SSH = os.path.join(os.path.expanduser("~"), ".ssh")   # captured before any test changes HOME
+LXC_HOST = "192.168.0.213"
+
+
+def _snapshot(d):
+    """Names, sizes, modes and mtimes of everything in d (non-recursive)."""
+    if not os.path.isdir(d):
+        return {}
+    return {n: (st.st_size, st.st_mode, st.st_mtime_ns)
+            for n in sorted(os.listdir(d)) for st in [os.lstat(os.path.join(d, n))]}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def real_ssh_untouched():
+    """T1: the whole run must leave the real ~/.ssh exactly as it was."""
+    before = _snapshot(REAL_SSH)
+    yield
+    after = _snapshot(REAL_SSH)
+    assert after == before, f"tests changed the real {REAL_SSH}: " + str(
+        {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)})
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path_factory, monkeypatch):
+    """T0: every test gets a temp HOME with an empty ~/.ssh/config (600) and only CT 213's
+    known_hosts entry, so remote tests don't stop at a host-key prompt."""
+    home = tmp_path_factory.mktemp("home")
+    ssh = home / ".ssh"
+    ssh.mkdir(mode=0o700)
+    (ssh / "config").write_text("")
+    (ssh / "config").chmod(0o600)
+    kh = os.path.join(REAL_SSH, "known_hosts")
+    if os.path.exists(kh):
+        entry = subprocess.run(["ssh-keygen", "-F", LXC_HOST, "-f", kh],
+                               capture_output=True, text=True).stdout
+        (ssh / "known_hosts").write_text("".join(l + "\n" for l in entry.splitlines() if not l.startswith("#")))
+    monkeypatch.setenv("HOME", str(home))
+    # OpenSSH ignores $HOME (it uses the passwd home dir), so without this the app's own
+    # ssh/scp calls would read the real ~/.ssh/config and known_hosts. Wrappers first on PATH
+    # point them at the temp HOME unless the caller already chose a config with -F.
+    bin_dir = home / "bin"
+    bin_dir.mkdir()
+    for tool in ("ssh", "scp"):
+        real = shutil.which(tool)
+        w = bin_dir / tool
+        w.write_text(
+            "#!/bin/sh\n"
+            'case " $* " in *" -F "*) exec ' + real + ' "$@" ;; esac\n'
+            "exec " + real + ' -F "$HOME/.ssh/config" -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$@"\n')
+        w.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    return home
 
 @pytest.fixture
 def run_tui():
