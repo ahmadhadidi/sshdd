@@ -146,7 +146,11 @@ function Install-SSHKeyOnRemote {
     try {
         if (![string]::IsNullOrEmpty($DefaultPassword) -and (Get-Command sshpass -ErrorAction SilentlyContinue)) {
             Write-Out 'dim' "Using sshpass with stored password."
-            $RemoteHostName = $PublicKey | sshpass -p $DefaultPassword ssh -o StrictHostKeyChecking=accept-new $target (ConvertTo-NativeArgument $script:RemoteInstallCommand)
+            # -e (password from $env:SSHPASS), never -p: -p puts it in argv, readable via ps (Z2).
+            $env:SSHPASS = $DefaultPassword
+            try {
+                $RemoteHostName = $PublicKey | sshpass -e ssh -o StrictHostKeyChecking=accept-new $target (ConvertTo-NativeArgument $script:RemoteInstallCommand)
+            } finally { Remove-Item Env:SSHPASS -ErrorAction SilentlyContinue }
         } else {
             Write-SSHFence $target
             $RemoteHostName = $PublicKey | ssh $target (ConvertTo-NativeArgument $script:RemoteInstallCommand)

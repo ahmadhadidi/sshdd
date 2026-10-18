@@ -39,7 +39,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### T — test hygiene
 - **T0** ✅ every test runs with a temp `HOME` (`conftest.isolated_home`, autouse): empty config, only CT 213's `known_hosts` entry. OpenSSH ignores `$HOME` (it uses the passwd home dir), so `ssh`/`scp` wrappers first on PATH add `-F $HOME/.ssh/config` and `UserKnownHostsFile` unless the caller passed `-F`.
-- **T1** ✅ the run errors if the real `~/.ssh` changed (`conftest.real_ssh_untouched`) · 🔨 same for `/tmp/.hprobe-*`, `/tmp/.ssh-askpass-*`.
+- **T1** ✅ the run errors if the real `~/.ssh` changed or `/tmp/.hprobe-*` / `/tmp/.ssh-askpass-*` files are left (`conftest`). The harness ends the app like a closed terminal (SIGHUP to the group).
 
 ### A — static
 - **A1** ✅ `bash -n` all scripts (pre-commit, `make check`).
@@ -68,22 +68,22 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **S3** 🔨 spinner visible during host probes and remote ops; gone afterwards.
 - **S4** ✅ every screen shows key hints · 🔨 hints match the keys each screen really handles.
 - **S5** ✅ errors stay on screen behind "Press any key" (`_OP_ERROR`) · 🔨 every op's result line.
-- **S6** 🔨 defaults shown pre-filled (`--user`, `--subnet`, `--comment-suffix`).
+- **S6** ✅ `--user`, `--subnet`, `--comment-suffix` pre-filled where they apply — `test_ux.py`.
 - **S7** 🔨 emoji rows align (icon column) at every width.
-- **S8** ✅ F1 opens and closes · 🔨 `?` help paging.
-- **S9** ✅ menu scrolls at 24 rows with the selection always visible · 🔨 pickers with 50/200 hosts.
+- **S8** ✅ F1 opens and closes; `?` help pages with Enter, closes with Q.
+- **S9** ✅ menu scrolls at 24 rows with the selection visible; a 60-host picker scrolls and filters.
 
 ### K — keyboard
 - **K1** ✅ Esc at every prompt of every operation (13 ops, 34 prompts): back to the menu, `~/.ssh` unchanged, one Q quits — `test_flows.py`. Esc at the passphrase cancels.
 - **K2** ✅ one Q quits from the main menu; every screen returns to the menu instead of quitting.
 - **K3** ✅ every hotkey and its lowercase; unknown keys (letters, F12, Ctrl+Up) ignored; E runs `$EDITOR` on the config.
 - **K4** ✅ arrow latency < 80 ms; held-down arrows never dropped · 🔨 same in pickers and pagers.
-- **K5** 🔨 Home/End/PgUp/PgDn wherever a list or pager is shown.
+- **K5** ✅ View Config pager: PgDn, End, Home · 🔨 key list, help.
 - **K6** ✅ Ctrl+U clears a pre-filled prompt (added; readline convention) · ✅ Backspace / Ctrl+W (older tests) · 🔨 paste of 2 KB text.
 
 ### X — termination and terminal state
 - **X1** ✅ Ctrl+C, Ctrl+Z, SIGTERM, SIGHUP at the menu and during host probes.
-- **X2** 🔨 same during ssh, ssh-keygen, pager, conf editor, `$EDITOR`.
+- **X2** ✅ Ctrl+C / closed terminal inside the pager, Conf Defaults, help and `$EDITOR`; Ctrl+C / SIGTERM at an ssh password prompt on CT 213: clean terminal, no temp files, no editor/ssh left running.
 - **X3** ✅ shell prompt position after exit in tmux and herdr (`test_exit_cursor.py`), and startup when the terminal ignores the cursor query — TODO #9.
 - **X4** ✅ resize redraws the menu, key list, View Config, Conf Defaults and pickers (shrink and grow) · limit: an op's title box above a picker isn't redrawn.
 
@@ -96,12 +96,12 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### D — data safety
 - **D1** 🔨 every config edit keeps comments, `Include`, `Match`, `Host *` and other blocks byte-for-byte.
-- **D2** ✅ PS imported private key 600 · 🔨 every op.
+- **D2** ✅ PS imported key 600 · ✅ W: `~/.ssh` 700, key 600, .pub 644, config 600.
 - **D3** ✅ Delete Local Key: "None" is the default remote choice; local files only after an explicit yes · 🔨 other deletes.
 
 ### Z — security
 - **Z1** ✅ PS key generation (comment/passphrase literal, both argument modes) · ✅ remote key removal bash + PS on CT 213 (canary) · ✅ key names can't leave `~/.ssh` (G, W, import; bash + PS) · 🔨 host/user/password through every op.
-- **Z2** 🔨 password never in the debug log, never in `ps` output for longer than the call, temp files 600/700.
+- **Z2** ✅ `--password` reaches sshpass via `$SSHPASS` (`-e`), not argv; never in the `--verbose` log · limit: `--password` itself stays in sshdd's own argv for the session.
 - **Z3** ✅ remote key removal keeps other keys and mode 600 (bash + PS) · 🔨 install/promote paths.
 
 ### R — remote (CT 213)
@@ -159,3 +159,6 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **Key names could leave `~/.ssh`**: G and Import took `../../x` and ssh-keygen / the import wrote there. Fixed: `_valid_key_name` / `Test-SSHKeyName` where keys are written (generation and import), not only in W's prompt.
 - **Install appended the key every time** (duplicates in `authorized_keys`) and glued it onto a last line without a newline, breaking both keys. Fixed: one shared remote install command (bash `_REMOTE_INSTALL_CMD`, PS `RemoteInstallCommand`) that appends only if absent, fixes the newline, and creates `~/.ssh` 700 / `authorized_keys` 600.
 - Append Hostname verified keys with `BatchMode=yes`, which can't ask a passphrase: protected keys always showed "Could not verify". Fixed (bash + PS): `PreferredAuthentications=publickey` instead.
+- `sshpass -p "$password"` put the password in argv, readable by every user via `ps` (sshpass's own manual warns). Fixed: `SSHPASS=… sshpass -e` (bash + PS).
+- Typing a filter after scrolling a long picker drew nothing (scroll offset left past the shorter list). Fixed (bash + PS).
+- `EDITOR="code --wait"` (any editor with arguments) failed the `command -v` check and fell back to nano. Fixed: first word checked, run via `sh -c` like git (bash); split on PS.

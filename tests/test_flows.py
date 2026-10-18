@@ -124,3 +124,17 @@ def test_passphrase_with_backspace(home):
         t.wait_for("generated")
     r = subprocess.run(["ssh-keygen", "-y", "-P", "password", "-f", str(home / ".ssh" / "newk")], capture_output=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_generated_key_permissions(home):
+    """D2: W leaves ~/.ssh 700, private key 600, public key 644, config 600."""
+    import stat
+    (home / ".ssh").chmod(0o755)                          # even if ~/.ssh was too open before
+    with Term(home=home) as t:
+        _walk(t, "W", 2)
+        t.press("\r")
+        t.wait_for("generated")
+    mode = lambda p: oct(stat.S_IMODE(p.stat().st_mode))
+    ssh = home / ".ssh"
+    assert (mode(ssh / "newk"), mode(ssh / "newk.pub"), mode(ssh / "config")) == ("0o600", "0o644", "0o600")
+    assert mode(ssh) == "0o700", "~/.ssh left group/world-readable"

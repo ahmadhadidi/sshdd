@@ -131,3 +131,17 @@ def test_edit_config_runs_editor_on_the_config(home, tmp_path):
         t.pump(2)
         assert marker.read_text() == str(home / ".ssh" / "config")
         _back_to_main(t)
+
+
+def test_edit_config_with_editor_arguments(home, tmp_path):
+    """E: EDITOR="cmd --wait" (VS Code style) gets the flag and the config path; checking the whole
+    string used to fail and fall back to nano."""
+    marker = tmp_path / "args"
+    editor = tmp_path / "ed2.sh"
+    editor.write_text(f'#!/bin/sh\nprintf "%s|" "$@" > {marker}\n')
+    editor.chmod(0o755)
+    with Term(home=home, env={"EDITOR": f"{editor} --wait"}) as t:
+        t.wait_for("Quit")
+        t.press("E")
+        t.pump(2)
+    assert marker.read_text() == f"--wait|{home / '.ssh' / 'config'}|"

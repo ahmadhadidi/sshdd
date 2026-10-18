@@ -70,5 +70,16 @@ class Term:
         return self.child.isalive()
 
     def close(self):
+        """End the app like a closed terminal: SIGHUP to its whole process group. pexpect's
+        terminate() hits only the bash pid, whose trap waits for the foreground child, so pexpect
+        then SIGKILLs it and sshdd's cleanup never runs (T1 found the leftovers)."""
+        import os
+        import signal
+        if self.child.isalive():
+            try:
+                os.killpg(os.getpgid(self.child.pid), signal.SIGHUP)
+                self.child.expect(pexpect.EOF, timeout=3)
+            except Exception:
+                pass
         if self.child.isalive():
             self.child.terminate(force=True)

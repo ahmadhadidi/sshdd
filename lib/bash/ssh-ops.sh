@@ -54,8 +54,9 @@ install_ssh_key_on_remote() {
     if [[ -n $DEFAULT_PASSWORD ]] && command -v sshpass &>/dev/null; then
         _out dim 'Using sshpass with stored password.'
         _spin_start "Installing on ${target}..."
+        # -e (password from $SSHPASS), never -p: -p puts it in argv, readable by every user via ps (Z2).
         remote_hostname=$(printf '%s\n' "$pubkey" | \
-            sshpass -p "$DEFAULT_PASSWORD" ssh -o StrictHostKeyChecking=accept-new \
+            SSHPASS="$DEFAULT_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=accept-new \
             "$target" "$_REMOTE_INSTALL_CMD" 2>&1)
         local _ik_rc=$?
         _spin_stop

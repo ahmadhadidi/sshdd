@@ -83,3 +83,72 @@ def test_cleanup_on_termination(shell, how, where):
         os.kill(_pid(marker), signal.SIGTERM if how == "sigterm" else signal.SIGHUP)
     _assert_clean(shell, before)
     assert _pid(marker) is None, "sshdd still running"
+
+
+# ── X2: ending sshdd while it's inside a sub-screen or a child program ─────────
+
+def _group_pid(marker):
+    pid = _pid(marker)
+    return os.getpgid(pid) if pid else None
+
+
+@pytest.mark.parametrize("how", ["ctrl-c", "close-terminal"])
+@pytest.mark.parametrize("where", ["pager", "conf", "help", "editor"])
+def test_cleanup_inside_subscreens(shell, tmp_path, how, where):
+    marker = f"-x2-{how}-{where}"
+    before = _tmp_files()
+    if where == "editor":
+        ed = tmp_path / "fake-editor"                     # an editor that stays open (ignores the file)
+        ed.write_text("#!/bin/sh\nexec sleep 37\n")
+        ed.chmod(0o755)
+        shell.sendline(f"export EDITOR={ed}")
+        shell.expect_exact(PROMPT)
+    _start(shell, marker)
+    keys = {"pager": "V", "conf": "\x1b[15~", "help": "?", "editor": "E"}[where]
+    shell.send(keys)
+    time.sleep(1.5)
+    if how == "ctrl-c":
+        shell.sendcontrol("c")
+    else:
+        os.killpg(_group_pid(marker), signal.SIGHUP)      # what a closing terminal does
+    if how == "close-terminal":
+        # the shell itself got SIGHUP too; check the leftovers from outside
+        time.sleep(2.5)
+        assert _pid(marker) is None, "sshdd still running"
+        assert not (_tmp_files() - before)
+    else:
+        _assert_clean(shell, before)
+    left = subprocess.run(["pgrep", "-f", "^sleep 37$"], capture_output=True, text=True).stdout
+    assert not left.strip(), f"editor left running: {left}"
+
+
+@pytest.mark.lxc
+@pytest.mark.parametrize("how", ["ctrl-c", "sigterm"])
+def test_cleanup_at_ssh_password_prompt(shell, isolated_home, how):
+    """X2 / TODO #10: ending sshdd while ssh waits for a password (Install on CT 213)."""
+    import subprocess as sp
+    ssh = isolated_home / ".ssh"
+    sp.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(ssh / "k1")], check=True)
+    (ssh / "config").write_text("Host ct\n    HostName 192.168.0.213\n    User testuser\n")
+    marker = f"-x2-ssh-{how}"
+    before = _tmp_files()
+    shell.sendline(f"export HOME={isolated_home}")
+    shell.expect_exact(PROMPT)
+    _start(shell, marker)
+    shell.send("I")
+    shell.expect("Esc cancel")
+    shell.send("k1\r")
+    shell.expect("Select remote host", timeout=8)
+    shell.send("ct\r")
+    shell.expect("Remote username")
+    shell.send("\r")
+    shell.expect("password:", timeout=15)
+    if how == "ctrl-c":
+        shell.sendcontrol("c")
+    else:
+        os.kill(_pid(marker), signal.SIGTERM)
+        time.sleep(1)
+        shell.sendcontrol("c")                             # the waiting ssh, as a user would
+    _assert_clean(shell, before)
+    left = subprocess.run(["pgrep", "-f", "testuser@ct"], capture_output=True, text=True).stdout
+    assert not left.strip(), f"ssh left running: {left}"

@@ -149,9 +149,14 @@ function Edit-SSHConfigFile {
         return
     }
 
-    $editor = $null
+    # $env:EDITOR may carry arguments ("code --wait"): a full path (even with spaces) is used as is,
+    # otherwise the first word is the command and the rest its arguments (plan E5).
+    $editor = $null; $editorArgs = @()
     if ($env:EDITOR -and (Get-Command $env:EDITOR -ErrorAction SilentlyContinue)) {
         $editor = $env:EDITOR
+    } elseif ($env:EDITOR -and (Get-Command ($env:EDITOR -split '\s+')[0] -ErrorAction SilentlyContinue)) {
+        $parts = $env:EDITOR -split '\s+'
+        $editor = $parts[0]; $editorArgs = @($parts | Select-Object -Skip 1)
     } else {
         foreach ($e in @("code", "nvim", "vim", "nano", "notepad.exe")) {
             if (Get-Command $e -ErrorAction SilentlyContinue) { $editor = $e; break }
@@ -161,7 +166,7 @@ function Edit-SSHConfigFile {
 
     Write-Out 'dim' "Opening in $editor..."
     try {
-        & $editor $configPath
+        & $editor @editorArgs $configPath
         Write-Out 'ok' "Done."
     } catch {
         Write-Out 'error' "Could not open editor '$editor': $_"

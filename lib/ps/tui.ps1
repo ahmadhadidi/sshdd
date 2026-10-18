@@ -73,6 +73,8 @@ function Select-FromList {
         if ($sel -ge $filtered.Count) { $sel = $filtered.Count - 1 }
         if ($sel -lt $viewOff -and $sel -ge 0) { $viewOff = $sel }
         elseif ($sel -ge 0 -and $sel -ge $viewOff + $maxVis) { $viewOff = $sel - $maxVis + 1 }
+        # Never scrolled past the end (filter typed after scrolling left nothing drawn, plan S9).
+        if ($viewOff -gt $filtered.Count - $maxVis) { $viewOff = $filtered.Count - $maxVis }
         if ($viewOff -lt 0) { $viewOff = 0 }
 
         $promptRow = $startRow - 2
@@ -162,6 +164,8 @@ function Select-MultiFromList {
         # Clamp viewport
         if ($sel -lt $viewOff) { $viewOff = $sel }
         elseif ($sel -ge $viewOff + $maxVis) { $viewOff = $sel - $maxVis + 1 }
+        # Never scrolled past the end (filter typed after scrolling left nothing drawn, plan S9).
+        if ($viewOff -gt $Items.Count - $maxVis) { $viewOff = $Items.Count - $maxVis }
         if ($viewOff -lt 0) { $viewOff = 0 }
 
         $promptRow = $startRow - 2

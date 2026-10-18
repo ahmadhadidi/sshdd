@@ -256,3 +256,36 @@ def test_powershell_refuses_key_names_outside_ssh_dir(tmp_path, name):
     assert "ok=False" in r.stdout, r.stdout + r.stderr
     written = [p for p in tmp_path.rglob("*") if p.is_file()]
     assert written == [], written
+
+
+def test_password_never_on_command_line_or_in_log(tmp_path, isolated_home):
+    """Z2: --password reaches sshpass through $SSHPASS (sshpass -e), not argv (-p, visible in ps);
+    the --verbose debug log never contains it."""
+    from .screen import Term
+    bin_dir = tmp_path / "fakebin"
+    bin_dir.mkdir()
+    rec = tmp_path / "sshpass.rec"
+    fake = bin_dir / "sshpass"
+    fake.write_text(f'#!/bin/sh\nprintf "argv=%s\\nenv=%s\\n" "$*" "$SSHPASS" > {rec}\nexit 1\n')
+    fake.chmod(0o755)
+    ssh = isolated_home / ".ssh"
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(ssh / "k1")], check=True)
+    (ssh / "config").write_text("Host box\n    HostName 192.0.2.1\n    User root\n")
+    log = "/tmp/sshdd-debug.log"
+    with Term(home=isolated_home, args="--password S3cret-pw --verbose",
+              env={"PATH": f"{bin_dir}:{os.environ['PATH']}"}) as t:
+        t.wait_for("Press any key to start")
+        t.press("ENTER")
+        t.wait_for("Quit")
+        t.press("I")
+        t.wait_for("Esc cancel")
+        t.press("k1\r")
+        t.wait_for("Select remote host", timeout=8)
+        t.press("box\r")
+        t.wait_for("Remote username")
+        t.press("\r")
+        t.wait_for("Press any key", timeout=15)
+    out = rec.read_text()
+    assert "argv=" in out and "S3cret-pw" not in out.split("env=")[0], out
+    assert out.strip().endswith("env=S3cret-pw"), out
+    assert "S3cret-pw" not in open(log, errors="replace").read()

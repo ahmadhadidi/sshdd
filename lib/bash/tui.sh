@@ -476,6 +476,9 @@ select_from_list() {
         elif (( sel >= 0 && sel >= view_off + max_vis )); then
             view_off=$(( sel - max_vis + 1 ))
         fi
+        # Never scrolled past the end: typing a filter after scrolling down left view_off beyond the
+        # (now shorter) list, so the matches existed but none were drawn (plan S9).
+        (( view_off > fcount - max_vis )) && view_off=$(( fcount - max_vis ))
         (( view_off < 0 )) && view_off=0
 
         # ── Build render frame without any subshell forks ────────────────────

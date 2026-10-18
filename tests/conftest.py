@@ -31,6 +31,21 @@ def real_ssh_untouched():
         {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)})
 
 
+TMP_GLOBS = ("/tmp/.hprobe-*", "/tmp/.ssh-askpass-*")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def no_temp_files_left():
+    """T1: sshdd removes its temp files however a test ends it (Term.close sends SIGHUP first)."""
+    import glob
+    before = {f for g in TMP_GLOBS for f in glob.glob(g)}
+    yield
+    import time
+    time.sleep(2.5)                                   # a probe still in its 2 s timeout
+    left = {f for g in TMP_GLOBS for f in glob.glob(g)} - before
+    assert not left, f"temp files left behind: {sorted(left)[:5]} ({len(left)})"
+
+
 @pytest.fixture(autouse=True)
 def isolated_home(tmp_path_factory, monkeypatch):
     """T0: every test gets a temp HOME with an empty ~/.ssh/config (600) and only CT 213's
@@ -62,8 +77,24 @@ def isolated_home(tmp_path_factory, monkeypatch):
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
     return home
 
+def end_like_terminal(child):
+    """End an app the way a closing terminal does: SIGHUP to its whole process group, then wait.
+    pexpect's own close() signals only the bash pid and SIGKILLs it ~0.2 s later, before sshdd's
+    trap has run (bash waits for its foreground child first), so temp files were left (T1)."""
+    import signal
+    if child.isalive():
+        try:
+            os.killpg(os.getpgid(child.pid), signal.SIGHUP)
+            child.expect(pexpect.EOF, timeout=3)
+        except Exception:
+            pass
+    if child.isalive():
+        child.terminate(force=True)
+
+
 @pytest.fixture
 def run_tui():
+    children = []
     def _run(args=""):
         script_path = "./sshdd.sh"
         env = os.environ.copy()
@@ -76,11 +107,15 @@ def run_tui():
         child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
 
         time.sleep(0.5)
+        children.append(child)
         return child
-    return _run
+    yield _run
+    for c in children:
+        end_like_terminal(c)
 
 @pytest.fixture
 def run_tui_no_keys(tmp_path):
+    children = []
     """Like run_tui but with an isolated temp HOME: no SSH keys, empty config.
 
     Guarantees the app always goes to the manual text prompt (not the
@@ -109,8 +144,11 @@ def run_tui_no_keys(tmp_path):
         child.logfile = sys.stdout
         child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
         time.sleep(0.5)
+        children.append(child)
         return child
-    return _run
+    yield _run
+    for c in children:
+        end_like_terminal(c)
 
 @pytest.fixture
 def check_navigation():

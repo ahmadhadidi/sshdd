@@ -120,10 +120,12 @@ edit_ssh_config_file() {
         return
     fi
 
+    # $VISUAL / $EDITOR may carry arguments ("code --wait", "subl -w"): check only the first word
+    # and run it through sh -c like git does. Checking the whole string fell back to nano (plan E5).
     local editor=""
-    if [[ -n ${VISUAL:-} ]] && command -v "$VISUAL" &>/dev/null; then
+    if [[ -n ${VISUAL:-} ]] && command -v "${VISUAL%% *}" &>/dev/null; then
         editor="$VISUAL"
-    elif [[ -n ${EDITOR:-} ]] && command -v "$EDITOR" &>/dev/null; then
+    elif [[ -n ${EDITOR:-} ]] && command -v "${EDITOR%% *}" &>/dev/null; then
         editor="$EDITOR"
     else
         local e
@@ -134,7 +136,7 @@ edit_ssh_config_file() {
     [[ -z $editor ]] && editor="vi"
 
     printf '  \e[90mOpening in %s...\e[0m\n' "$editor"
-    "$editor" "$SSH_CONFIG" && printf '  \e[32mDone.\e[0m\n' || \
+    sh -c "$editor \"\$1\"" sh "$SSH_CONFIG" && printf '  \e[32mDone.\e[0m\n' || \
         printf '  \e[31mCould not open editor '\''%s'\''.\e[0m\n' "$editor"
 }
 
