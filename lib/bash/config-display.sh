@@ -179,7 +179,7 @@ remove_host_from_ssh_config() {
     fi
 
     _replace_host_block "$_HOST_BLOCK" "" || {
-        printf '  \e[31mCould not edit %s (needs perl or python3). Nothing changed.\e[0m\n' "$SSH_CONFIG"
+        _out error 'Could not edit %s (needs perl or python3). Nothing changed.' "$SSH_CONFIG"
         return 1
     }
 

@@ -12,7 +12,9 @@
 #   --password PASS       Default SSH password for sshpass
 #   --verbose             Log debug info to /tmp/sshdd-debug.log
 
-set -uo pipefail
+# No `set -u`: bash 3.2 (macOS) treats an empty array as unset, so every "${arr[@]}" on an empty
+# list (e.g. "keep it on remote hosts" in Delete Local Key) killed sshdd mid-operation.
+set -o pipefail
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 

@@ -20,7 +20,7 @@ deploy_ssh_key_to_remote() {
         _out warn 'Key does not exist. Generating...'
         local comment
         comment=$(read_ssh_key_comment "${keyname}${DEFAULT_COMMENT_SUFFIX}") || return 1
-        add_ssh_key_in_host "$keyname" "$comment"
+        add_ssh_key_in_host "$keyname" "$comment" || return 1
     else
         printf '\n'
         _out info 'Key already exists. Proceeding with installation...'
@@ -146,7 +146,7 @@ remove_ssh_key_from_remote() {
     _dbg "remove_ssh_key_from_remote: user='$remote_user' host='$remote_host' key='$keyname'"
 
     local pubkey
-    pubkey=$(get_public_key "$keyname") || return 1
+    pubkey=$(get_public_key "$keyname") || { _OP_ERROR=1; return 1; }   # error printed in the subshell
 
     local target
     target=$(resolve_ssh_target "$remote_host" "$remote_user")
@@ -266,7 +266,8 @@ add_ssh_key_in_host() {
 
     printf '  \e[36mPassphrase\e[0m \e[90m(empty = passwordless)\e[0m  '
     local passphrase
-    IFS= read -r -s passphrase 2>/dev/null || passphrase=''
+    read_secret || { printf '\n'; _out dim 'Cancelled.'; return 1; }
+    passphrase=$_SECRET; _SECRET=''
     printf '\n'
 
     local stars

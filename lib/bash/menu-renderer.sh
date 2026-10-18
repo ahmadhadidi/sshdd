@@ -22,13 +22,16 @@ _invoke_choice() {
 
     _setup_askpass
     local skip_wait=0
+    _OP_ERROR=0
     invoke_menu_choice "$choice" || skip_wait=$?
-    _dbg "_invoke_choice: '$choice' completed, skip_wait=$skip_wait"
+    _dbg "_invoke_choice: '$choice' completed, skip_wait=$skip_wait error=$_OP_ERROR"
     _destroy_askpass
 
     stty "$_stty_saved_inner" 2>/dev/null || true
 
-    (( skip_wait )) || wait_user_acknowledge
+    # Non-zero = own full-screen TUI or cancelled: back to the menu at once. But an error must
+    # stay readable: error paths also return 1 and their message used to flash away (plan S5).
+    (( skip_wait && ! _OP_ERROR )) || wait_user_acknowledge
     printf '\e[?25l'
     need_full=1
 }

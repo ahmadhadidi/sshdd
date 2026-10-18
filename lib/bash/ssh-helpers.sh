@@ -22,7 +22,7 @@ _out() {
     case "$style" in
         ok)      code=32 ;;
         warn)    code=33 ;;
-        error)   code=31 ;;
+        error)   code=31; _OP_ERROR=1 ;;   # _invoke_choice then always shows "Press any key"
         info)    code=36 ;;
         dim)     code=90 ;;
         heading) code=96 ;;

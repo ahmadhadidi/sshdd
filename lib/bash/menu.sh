@@ -247,12 +247,16 @@ _menu_delete_local_key() {       # choice 8
     done < <(get_hosts_using_key "$keyname")
 
     if (( ${#key_hosts[@]} > 0 )); then
+        # "None" first and highlighted: two Enters used to remove the key from ALL remote hosts and
+        # then delete it locally. Esc cancels the whole operation (TODO #1 rule).
+        local none_label="-- None (keep it on remote hosts)"
         local all_label="-- ALL  (${#key_hosts[@]} host(s))"
-        select_from_list -p "Remove key from remote host(s)  (Esc = skip remote)" \
-            "$all_label" "${key_host_labels[@]}"
+        select_from_list -s -p "Also remove it from remote host(s)?" \
+            "$none_label" "$all_label" "${key_host_labels[@]}"
+        (( _SELECT_CANCELLED )) && return 1
 
         local -a targets_to_remove=()
-        if (( _SELECT_CANCELLED == 0 )) && [[ -n $_SELECT_RESULT ]]; then
+        if [[ -n $_SELECT_RESULT && $_SELECT_RESULT != "$none_label" ]]; then
             local sel="$_SELECT_RESULT"
             if [[ $sel == "-- ALL"* ]]; then
                 targets_to_remove=("${key_hosts[@]}")
@@ -278,6 +282,11 @@ _menu_delete_local_key() {       # choice 8
     fi
 
     local priv="$SSH_DIR/$keyname" pub="$SSH_DIR/${keyname}.pub"
+    # Error prevention (plan D3): deleting a private key can't be undone; default No.
+    local _go=0
+    _confirm_delete_local() { _go=1; }
+    confirm_user_choice "Delete $priv and its .pub? This can't be undone." n _confirm_delete_local || return 0
+    (( _go )) || return 0
     local deleted=0
     if [[ -f $priv ]]; then rm -f "$priv"; printf '  \e[32mDeleted: %s\e[0m\n' "$priv"; deleted=1; fi
     if [[ -f $pub  ]]; then rm -f "$pub";  printf '  \e[32mDeleted: %s\e[0m\n' "$pub";  deleted=1; fi

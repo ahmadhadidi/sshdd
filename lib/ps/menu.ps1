@@ -205,15 +205,16 @@ function _MenuDeleteLocalKey {       # choice 8 — optionally remove from remot
     $keyHosts = Get-HostsUsingKey -KeyName $KeyName
 
     if ($keyHosts.Count -gt 0) {
+        # "None" first and highlighted (two Enters removed it from ALL hosts, then locally); Esc cancels.
+        $noneLabel  = "-- None (keep it on remote hosts)"
         $allLabel   = "-- ALL  ($($keyHosts.Count) host$(if ($keyHosts.Count -ne 1){'s'}))"
-        $hostLabels = @($allLabel) + @($keyHosts | ForEach-Object {
+        $hostLabels = @($noneLabel, $allLabel) + @($keyHosts | ForEach-Object {
             if ($_.HostName) { "$($_.Alias)  ($($_.HostName))" } else { $_.Alias }
         })
-        $selectedHost = $null
-        try { $selectedHost = Select-FromList -Items $hostLabels -Prompt "Remove key from remote host(s)  (Esc = skip remote)" }
-        catch [System.OperationCanceledException] { $selectedHost = $null }
+        $selectedHost = Select-FromList -Items $hostLabels -Prompt "Also remove it from remote host(s)?" -StrictList
+        if ($selectedHost -eq $noneLabel) { $selectedHost = $null }
 
-        $targetsToRemove = if ($selectedHost -and $selectedHost.StartsWith("--")) {
+        $targetsToRemove = if ($selectedHost -and $selectedHost.StartsWith("-- ALL")) {
             $keyHosts
         } elseif ($selectedHost) {
             $alias = ($selectedHost -split '\s+\(')[0].Trim()
@@ -232,6 +233,10 @@ function _MenuDeleteLocalKey {       # choice 8 — optionally remove from remot
 
     $privPath = "$env:USERPROFILE\.ssh\$KeyName"
     $pubPath  = "$privPath.pub"
+    # Error prevention (plan D3): deleting a private key can't be undone; default No.
+    $script:_goDelete = $false
+    Confirm-UserChoice -Message "  Delete $privPath and its .pub? This can't be undone." -Action { $script:_goDelete = $true } -DefaultAnswer "n"
+    if (-not $script:_goDelete) { return }
     $deleted  = @()
     if (Test-Path $privPath) { Remove-Item $privPath -Force; $deleted += $privPath }
     if (Test-Path $pubPath)  { Remove-Item $pubPath  -Force; $deleted += $pubPath  }

@@ -67,14 +67,14 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **S2** ✅ main menu bars share the reverse-video background · ✅ F5 title box · 🔨 all op screens use the same box.
 - **S3** 🔨 spinner visible during host probes and remote ops; gone afterwards.
 - **S4** ✅ every screen shows key hints · 🔨 hints match the keys each screen really handles.
-- **S5** 🔨 every op ends with a result line and "Press any key", then the menu.
+- **S5** ✅ errors stay on screen behind "Press any key" (`_OP_ERROR`) · 🔨 every op's result line.
 - **S6** 🔨 defaults shown pre-filled (`--user`, `--subnet`, `--comment-suffix`).
 - **S7** 🔨 emoji rows align (icon column) at every width.
 - **S8** ✅ F1 opens and closes · 🔨 `?` help paging.
 - **S9** ✅ menu scrolls at 24 rows with the selection always visible · 🔨 pickers with 50/200 hosts.
 
 ### K — keyboard
-- **K1** ✅ Esc cancels at the first and later prompts (G, W, T) · 🔨 every prompt of every op.
+- **K1** ✅ Esc at every prompt of every operation (13 ops, 34 prompts): back to the menu, `~/.ssh` unchanged, one Q quits — `test_flows.py`. Esc at the passphrase cancels.
 - **K2** ✅ one Q quits from the main menu; every screen returns to the menu instead of quitting.
 - **K3** ✅ every hotkey and its lowercase; unknown keys (letters, F12, Ctrl+Up) ignored; E runs `$EDITOR` on the config.
 - **K4** ✅ arrow latency < 80 ms; held-down arrows never dropped · 🔨 same in pickers and pagers.
@@ -97,7 +97,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 ### D — data safety
 - **D1** 🔨 every config edit keeps comments, `Include`, `Match`, `Host *` and other blocks byte-for-byte.
 - **D2** ✅ PS imported private key 600 · 🔨 every op.
-- **D3** 🔨 delete operations remove only what was confirmed.
+- **D3** ✅ Delete Local Key: "None" is the default remote choice; local files only after an explicit yes · 🔨 other deletes.
 
 ### Z — security
 - **Z1** ✅ PS key generation (comment/passphrase literal, both argument modes) · ✅ remote key removal bash + PS on CT 213 (canary) · 🔨 the other inputs (name, host, user, password) through every op.
@@ -152,3 +152,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - An unreadable config printed raw `awk: cannot open … Permission denied` and every list was silently empty. Fixed: parsers skip it; the menu shows a warning with the chmod fix.
 - Without perl, `_get_host_block` returned nothing, so every config edit did nothing. Fixed: python3 fallback.
 - Every key loop blocked in `read -n1` (forces VMIN=1), so nothing redrew on terminal resize until a key was pressed. Fixed: dd-based polling (`_wait_key`, `KEY_RESIZE`); dd ignores Ctrl+Z/C so a stopped dd can't hang sshdd.
+- **Delete Local Key removed the key everywhere after two Enters**: the remote list highlighted "-- ALL" first, and the local private key was deleted with no confirmation. Fixed: "None" first, then "Delete …? [y/N]" (bash + PS).
+- **`set -u` on bash 3.2 crashed sshdd on any empty array** (`"${arr[@]}"` = unbound variable; bash ≥ 4.4 doesn't). Hit by "skip remote" in Delete Local Key; 31 such expansions. Fixed: no `set -u` (shellcheck covers typos); `test_static.py` keeps it out.
+- Errors in operations returned 1, which also means "skip Press any key", so the message flashed away (e.g. empty import path). Fixed: `_out error` sets `_OP_ERROR` and the ack is shown.
+- The passphrase prompt (`read -s`) took Esc as a character: the key got a passphrase containing `\x1b`. Fixed: `read_secret` (Esc cancels, Backspace edits). Generate & Install also carried on after a cancelled key generation.

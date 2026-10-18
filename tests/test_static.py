@@ -76,3 +76,12 @@ def test_psscriptanalyzer_risky_rules():
     findings = [l for l in r.stdout.splitlines()
                 if l.strip() and not (l.startswith("sshdd.ps1:") and "InvokeExpression" in l)]
     assert not findings, "\n".join(findings)
+
+
+def test_no_set_u():
+    """bash 3.2 + set -u: "${arr[@]}" on an empty array is an "unbound variable" crash."""
+    import re as _re
+    for path in BASH_FILES:
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            code = line.split("#", 1)[0]
+            assert not _re.search(r"\bset\s+-[a-z]*u|set\s+-o\s+nounset", code), f"{path}:{n}: {line.strip()}"

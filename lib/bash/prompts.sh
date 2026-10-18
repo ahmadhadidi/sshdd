@@ -251,6 +251,29 @@ read_host_with_default() {
     done
 }
 
+# Hidden input (passphrases): nothing echoed, Backspace edits, Enter accepts, Esc cancels (returns 1).
+# A plain `read -s` took Esc as a character, so the passphrase silently contained \x1b (plan K1).
+# Result in _SECRET (never via $(...), so it doesn't sit in a subshell's argv/env).
+read_secret() {
+    local _st _k
+    _SECRET=''
+    _st=$(stty -g 2>/dev/null) || true
+    stty -echo -icanon min 0 time 1 2>/dev/null || true
+    while :; do
+        _wait_key
+        _k=$KEY
+        case "$_k" in
+            "$KEY_ENTER"|"$KEY_ENTER2") break ;;
+            "$KEY_ESC")                 stty "$_st" 2>/dev/null || true; _SECRET=''; return 1 ;;
+            "$KEY_BACKSPACE"|"$KEY_BACKSPACE2") _SECRET=${_SECRET%?} ;;
+            "$KEY_RESIZE"|$'\x1b'*)    ;;          # arrows, F-keys: ignore
+            *)                           _SECRET+=$_k ;;
+        esac
+    done
+    stty "$_st" 2>/dev/null || true
+    return 0
+}
+
 read_remote_user() {
     local default_user="${1:-$DEFAULT_USER}"
     read_host_with_default "Remote username:" "$default_user"
