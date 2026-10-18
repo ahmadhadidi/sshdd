@@ -94,6 +94,31 @@ _esc_drain() {
     [[ -n $_restore_stty ]] && stty $_restore_stty 2>/dev/null || true
 }
 
+# Ask the terminal where the cursor is (DSR 6: answer is ESC [ row ; col R).
+# Sets _CUR_ROW/_CUR_COL; both empty if the terminal doesn't answer within 100 ms.
+_cursor_pos() {
+    local _st _r=''
+    _CUR_ROW='' _CUR_COL=''
+    _st=$(stty -g 2>/dev/null) || return 0
+    stty -echo -icanon min 0 time 1 2>/dev/null || true
+    printf '\e[6n' >/dev/tty 2>/dev/null
+    # dd, not read -d R: bash's read -d forces VMIN=1 and would hang forever on a
+    # terminal that never answers. dd's read returns empty after 100 ms (VTIME).
+    local _c _i
+    for (( _i = 0; _i < 4; _i++ )); do
+        _c=$(dd bs=32 count=1 </dev/tty 2>/dev/null)
+        [[ -z $_c ]] && break
+        _r+=$_c
+        [[ $_r == *R* ]] && break
+    done
+    _r=${_r%%R*}
+    stty "$_st" 2>/dev/null || true
+    _r=${_r##*[}
+    if [[ $_r =~ ^([0-9]+)\;([0-9]+)$ ]]; then
+        _CUR_ROW=${BASH_REMATCH[1]} _CUR_COL=${BASH_REMATCH[2]}
+    fi
+}
+
 # Read one keypress (blocking). Sets global KEY.
 # Handles arrow keys and multi-byte escape sequences including 2-digit F-keys
 # (e.g. F5 = \x1b[15~, F10 = \x1b[21~).

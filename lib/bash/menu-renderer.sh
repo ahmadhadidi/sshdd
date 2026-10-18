@@ -128,6 +128,9 @@ show_main_menu() {
     # Enter alternate screen, save terminal state globally for reliable cleanup.
     # Then enter raw/noecho immediately so the event loop never echoes escape sequences.
     _STTY_SAVED=$(stty -g 2>/dev/null) || true
+    # Where the shell's cursor is, so exit can put it back even on terminals that don't
+    # restore it when leaving the alternate screen (TODO #9: prompt in an odd place in herdr).
+    _cursor_pos; _ENTRY_ROW=$_CUR_ROW _ENTRY_COL=$_CUR_COL
     printf '\e[?1049h\e[?25l'
     stty -echo -icanon min 0 time 1 2>/dev/null || true
 
@@ -144,8 +147,10 @@ show_main_menu() {
         (( ${#_CLEANUP_PATHS[@]} )) && rm -f "${_CLEANUP_PATHS[@]}" 2>/dev/null
         # Clear the alternate screen before leaving so no content bleeds through,
         # then restore cursor visibility and switch back to the normal screen.
-        printf '\e[?25h\e[2J\e[H\e[?1049l' >/dev/tty 2>/dev/null || \
-        printf '\e[?25h\e[2J\e[H\e[?1049l'
+        local _back=''
+        [[ -n ${_ENTRY_ROW:-} ]] && printf -v _back '\e[%d;%dH' "$_ENTRY_ROW" "$_ENTRY_COL"
+        printf '\e[?25h\e[2J\e[H\e[?1049l%s' "$_back" >/dev/tty 2>/dev/null || \
+        printf '\e[?25h\e[2J\e[H\e[?1049l%s' "$_back"
         stty "$_STTY_SAVED" 2>/dev/null || stty sane 2>/dev/null || true
     }
 

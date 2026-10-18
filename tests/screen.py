@@ -30,6 +30,8 @@ class Term:
         self.stream = pyte.Stream(self.screen)
         self.child = pexpect.spawn(f"{BASH32} ./sshdd.sh {args}", cwd=ROOT, env=e,
                                    encoding="utf-8", dimensions=(rows, cols), timeout=10)
+        # Answer terminal queries (cursor position, DSR) like a real terminal does.
+        self.screen.write_process_input = self.child.send
 
     def __enter__(self):
         return self

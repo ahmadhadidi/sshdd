@@ -51,6 +51,9 @@ function Show-MainMenu {
     $termHeight = 0
     $viewOff    = 0
 
+    # Where the shell's cursor is, so exit can put it back on terminals that don't restore it (TODO #9).
+    $entryCursor = $null
+    try { $entryCursor = $Host.UI.RawUI.CursorPosition } catch {}
     [Console]::Write("`e[?1049h`e[?25l")
 
     try {
@@ -216,6 +219,7 @@ function Show-MainMenu {
         }
     } finally {
         [Console]::Write("`e[?25h`e[?1049l")
+        if ($entryCursor) { try { $Host.UI.RawUI.CursorPosition = $entryCursor } catch {} }
     }
 }
 
