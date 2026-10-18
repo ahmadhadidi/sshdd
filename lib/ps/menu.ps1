@@ -183,7 +183,8 @@ function _MenuAppendKeyToConfig {    # choice 7 — verify key works on remote, 
 
     $keyPath = "$env:USERPROFILE\.ssh\$KeyName"
     Write-SSHFence
-    $testOut = & ssh -F NUL -i $keyPath -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=6 `
+    # Key auth only, but not BatchMode: that can't ask a passphrase, so protected keys never verified (R8).
+    $testOut = & ssh -F NUL -i $keyPath -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o ConnectTimeout=6 `
                      -o StrictHostKeyChecking=accept-new "$RemoteUser@$RemoteHostAddress" "echo ok" 2>&1
     Write-SSHFenceClose
 

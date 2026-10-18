@@ -204,3 +204,48 @@ def test_add_config_block_from_remote_keys(ct):
         _answer_password(t, yes_no="n")
     cfg = (ct / ".ssh" / "config").read_text()
     assert "Host newbox" in cfg and LXC_HOST in cfg and "k2" in cfg, cfg
+
+
+@pytest.fixture
+def ct_pp(ct):
+    """Adds kp, protected by the passphrase "pp-secret", installed on the CT."""
+    kp = ct / ".ssh" / "kp"
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "pp-secret", "-C", "kp-e2e", "-f", str(kp)], check=True)
+    _set_remote_keys(KEEP, kp.with_suffix(".pub").read_text())
+    return ct
+
+
+def _answer_passphrase(t, until, timeout=20):
+    import time
+    end = time.time() + timeout
+    while time.time() < end:
+        t.pump(0.5)
+        if until in t.text():
+            return t.text()
+        if "passphrase" in t.screen.display[t.screen.cursor.y].lower():
+            t.press("pp-secret\r")
+    raise AssertionError(f"{until!r} didn't show:\n{t.text()}")
+
+
+def test_test_connection_with_passphrase_key(ct_pp):
+    """R8: T asks the key's passphrase and reports success."""
+    with Term(home=ct_pp, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("T")
+        _pick_host(t)
+        t.wait_for("Esc cancel", timeout=8)
+        t.press("kp\r")
+        txt = _answer_passphrase(t, "Press any key")
+    assert "successful" in txt, txt
+
+
+def test_append_hostname_verifies_passphrase_key(ct_pp):
+    """R8: A verifies a protected key (it used BatchMode, which can't ask the passphrase)."""
+    with Term(home=ct_pp, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("A")
+        t.wait_for("Esc cancel")
+        t.press("kp\r")
+        _pick_host(t)
+        txt = _answer_passphrase(t, "verified")
+    assert "Could not verify" not in txt

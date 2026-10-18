@@ -216,9 +216,10 @@ _menu_append_key_to_config() {   # choice 7
 
     local keypath="$SSH_DIR/$keyname"
     _ssh_fence
+    # Key auth only, but not BatchMode: that can't ask a passphrase, so protected keys never verified (R8).
     local test_out
     test_out=$(ssh -F /dev/null -i "$keypath" -o IdentitiesOnly=yes \
-        -o BatchMode=yes -o ConnectTimeout=6 \
+        -o PreferredAuthentications=publickey -o ConnectTimeout=6 \
         -o StrictHostKeyChecking=accept-new \
         "${remote_user}@${host_addr}" "echo ok" 2>&1) || true
 

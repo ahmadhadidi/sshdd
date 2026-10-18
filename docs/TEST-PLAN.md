@@ -109,7 +109,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **R5** 🔨 password auth and key auth for every remote op.
 - **R6** 🔨 unreachable host / closed port.
 - **R7** ✅ installing a key that's already there doesn't duplicate it; a last line without newline isn't corrupted.
-- **R8** 🔨 passphrase-protected key.
+- **R8** ✅ passphrase-protected key: Test Connection and Append Hostname ask the passphrase and succeed.
 
 ### C — cloud
 - **C1** ✅ cloud loader runs clean from an HTTP copy of the repo.
@@ -158,3 +158,4 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - The passphrase prompt (`read -s`) took Esc as a character: the key got a passphrase containing `\x1b`. Fixed: `read_secret` (Esc cancels, Backspace edits). Generate & Install also carried on after a cancelled key generation.
 - **Key names could leave `~/.ssh`**: G and Import took `../../x` and ssh-keygen / the import wrote there. Fixed: `_valid_key_name` / `Test-SSHKeyName` where keys are written (generation and import), not only in W's prompt.
 - **Install appended the key every time** (duplicates in `authorized_keys`) and glued it onto a last line without a newline, breaking both keys. Fixed: one shared remote install command (bash `_REMOTE_INSTALL_CMD`, PS `RemoteInstallCommand`) that appends only if absent, fixes the newline, and creates `~/.ssh` 700 / `authorized_keys` 600.
+- Append Hostname verified keys with `BatchMode=yes`, which can't ask a passphrase: protected keys always showed "Could not verify". Fixed (bash + PS): `PreferredAuthentications=publickey` instead.
