@@ -130,7 +130,8 @@ function Show-SSHConfigFile {
             36 { $off = 0 }
             35 { $off = $total - $contentRows }
         }
-        if ($key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
+        # Esc closes like Q (TODO #1 rule; `break` inside the switch would only leave the switch).
+        if ($key.VirtualKeyCode -eq 27 -or $key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
 
         $nW = $Host.UI.RawUI.WindowSize.Width; $nH = $Host.UI.RawUI.WindowSize.Height
         if ($nW -ne $termW -or $nH -ne $termH) {
@@ -340,7 +341,8 @@ function Show-SSHKeyInventory {
             }
         }
         if ($moved) { $needRedraw = $true }
-        if ($key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
+        # Esc closes like Q (TODO #1 rule; `break` inside the switch would only leave the switch).
+        if ($key.VirtualKeyCode -eq 27 -or $key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
 
         $nW = $Host.UI.RawUI.WindowSize.Width; $nH = $Host.UI.RawUI.WindowSize.Height
         if ($nW -ne $termW -or $nH -ne $termH) { $needRedraw = $true }
@@ -441,7 +443,8 @@ function _DisplayKeyFile {
             36 { $off = 0 }
             35 { $off = $total - $contentRows }
         }
-        if ($key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
+        # Esc closes like Q (TODO #1 rule; `break` inside the switch would only leave the switch).
+        if ($key.VirtualKeyCode -eq 27 -or $key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
         if ($key.VirtualKeyCode -eq 27) { break }
 
         $nW = $Host.UI.RawUI.WindowSize.Width; $nH = $Host.UI.RawUI.WindowSize.Height

@@ -118,24 +118,22 @@ function Read-SSHKeyComment {
 
 
 function Read-ColoredInput {
+    # Free-text prompt. Esc cancels (throws OperationCanceledException, like every other prompt);
+    # Read-Host had no Esc at all (TODO #1 rule).
     param (
         [string]$Prompt,
         [ConsoleColor]$ForegroundColor = "Cyan"
     )
     Write-Host -NoNewline "$Prompt " -ForegroundColor $ForegroundColor
-    return Read-Host
+    [Console]::Write("`e[?25h")
+    return Read-LineKeys ""
 }
 
 
-function Read-HostWithDefault {
-    # Shows a prompt with the default value pre-filled and editable.
-    param(
-        [string]$Prompt,
-        [string]$Default = ""
-    )
-    Write-Host -NoNewline "  `e[36m$Prompt`e[0m  " -ForegroundColor Cyan
-    [Console]::Write($Default)
-    [Console]::Write("`e[?25h")
+function Read-LineKeys {
+    # Shared line editor: Enter accepts, Esc throws OperationCanceledException, Backspace deletes,
+    # Ctrl+U clears (readline convention, as in bash). $Default is already on screen.
+    param([string]$Default = "")
     $buf = $Default
     while ($true) {
         $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -150,11 +148,27 @@ function Read-HostWithDefault {
                 $buf = $buf.Substring(0, $buf.Length - 1)
                 [Console]::Write("`b `b")
             }
+        } elseif ([int]$k.Character -eq 21) {  # Ctrl+U
+            [Console]::Write(("`b" * $buf.Length) + (" " * $buf.Length) + ("`b" * $buf.Length))
+            $buf = ""
         } elseif ([int]$k.Character -ge 32) {  # Printable
             $buf += $k.Character
             [Console]::Write([string]$k.Character)
         }
     }
+}
+
+
+function Read-HostWithDefault {
+    # Shows a prompt with the default value pre-filled and editable.
+    param(
+        [string]$Prompt,
+        [string]$Default = ""
+    )
+    Write-Host -NoNewline "  `e[36m$Prompt`e[0m  " -ForegroundColor Cyan
+    [Console]::Write($Default)
+    [Console]::Write("`e[?25h")
+    return Read-LineKeys $Default
 }
 
 

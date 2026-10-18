@@ -78,7 +78,7 @@ When modifying a PS module, these are the other files that call its functions:
 - `Read-RemoteHostAddress`:34 — shows configured-host combo-box; on selection sets `$script:_LastSelectedAlias` and returns the `HostName` value; Esc cancels (exception propagates); typed text that isn't a configured host is the address (no second prompt); the manual prompt appears only when no hosts are configured; subnet shorthand: 1–3 digit input → `"$SubnetPrefix.$digit"`
 - `Read-NewSSHKeyName` — new-key name for `_MenuGenerateKey` (no picker; re-asks on empty, unsafe or existing names)
 - `Read-SSHKeyName`:75 / `Read-SSHKeyComment`:86 — key picker (combo-box → free text) and comment input; `Read-SSHKeyName` recurses via `Resolve-NullToAction` until non-empty
-- `Read-ColoredInput`:92 — uses `Read-Host` internally; no Esc cancel, no Ctrl+W; simpler than bash counterpart; suitable for paths and free-text where cancel is not needed
+- `Read-ColoredInput`:92 / `Read-HostWithDefault` — both use `Read-LineKeys` (Enter, Esc throws OperationCanceledException, Backspace, Ctrl+U)
 - `Read-HostWithDefault`:102 — raw `ReadKey` loop with pre-filled buffer; Backspace edits, Enter confirms, Esc throws `[System.OperationCanceledException]`
 - `Resolve-NullToDefault`:133 / `Resolve-NullToAction`:142 / `Test-ValueIsNull`:184 — null/empty guards; `Resolve-NullToAction` re-invokes a callback scriptblock when value is blank (used for required-field retry loops)
 - `Confirm-UserChoice`:157 `Message Action DefaultAnswer` — prompts with `[Y/n]`/`[y/N]`/`[y/n]` based on `$DefaultAnswer`; recurses on invalid input; calls `$Action` scriptblock on yes

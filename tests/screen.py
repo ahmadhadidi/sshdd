@@ -85,3 +85,50 @@ class Term:
                 pass
         if self.child.isalive():
             self.child.terminate(force=True)
+
+
+class Tmux:
+    """A real terminal emulator for programs pyte draws wrong (emoji + VS16, as the PowerShell
+    menu uses). Runs `cmd` in a private tmux server; text via capture-pane."""
+
+    def __init__(self, cmd, rows=40, cols=100, env=None, cwd=ROOT):
+        import subprocess
+        import uuid
+        self.sock = f"sshdd-{uuid.uuid4().hex[:8]}"
+        e = dict(os.environ, **(env or {}))
+        subprocess.run(["tmux", "-L", self.sock, "new-session", "-d", "-x", str(cols), "-y", str(rows),
+                        "-c", cwd, cmd], env=e, check=True)
+        subprocess.run(["tmux", "-L", self.sock, "set-option", "-g", "remain-on-exit", "on"], check=True)
+
+    def _tmux(self, *a):
+        import subprocess
+        return subprocess.run(["tmux", "-L", self.sock, *a], capture_output=True, text=True).stdout
+
+    def text(self):
+        return self._tmux("capture-pane", "-p")
+
+    def alive(self):
+        return self._tmux("display", "-p", "#{pane_dead}").strip() == "0"
+
+    def press(self, *keys, gap=0.2):
+        names = {"ESC": "Escape", "ENTER": "Enter", "UP": "Up", "DOWN": "Down", "F10": "F10", "F5": "F5"}
+        for k in keys:
+            if k in names:
+                self._tmux("send-keys", names[k])
+            else:
+                self._tmux("send-keys", "-l", k)
+            time.sleep(gap)
+
+    def wait_for(self, needle, timeout=8):
+        end = time.time() + timeout
+        while time.time() < end:
+            if needle in self.text():
+                return
+            time.sleep(0.2)
+        raise AssertionError(f"{needle!r} not on screen after {timeout}s:\n{self.text()}")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self._tmux("kill-server")

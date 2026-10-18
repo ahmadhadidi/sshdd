@@ -116,7 +116,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **C2** ✅ download failure: one clear message, exit 1.
 
 ### P — parity and platforms
-- **P1** 🔨 PowerShell TUI driven by pexpect + pyte under `pwsh` on Linux: same screens and keys as bash (S, K tests parametrised by implementation).
+- **P1** ✅ PowerShell TUI under `pwsh` in tmux (pyte mis-draws emoji + VS16): every hotkey opens its screen, Esc/Enter back to the menu, Q quits — `test_powershell_tui.py` · 🔨 prompts and flows (only bash's are walked) · limit: on macOS/Linux pwsh, Windows-style paths break the key list (out of scope: PS targets Windows).
 - **P2** 🚫 macOS: whole suite on a GitHub Actions `macos-latest` runner (system bash 3.2, BSD sed/awk/dd). Not approved (2026-10-18); run by hand on the Mac meanwhile.
 - **P3** 🚫 Windows PowerShell 5.1: PS tests on a `windows-latest` runner. Not approved (2026-10-18).
 
@@ -166,3 +166,11 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **No ssh call had a connect timeout**: an unreachable host hung an operation for the system TCP timeout (~2 min) with no message. Fixed: `ssh`/`scp` wrappers with `ConnectTimeout=10` (bash; PS `ssh` function).
 - Exit cleanup could be cut short by a second signal and talked to the (possibly gone) terminal before deleting files; temp files were created via `$(mktemp)`, so a signal during that subshell lost the file's name. Fixed: cleanup ignores further signals and deletes files first; `_mktemp_reg` registers the name before creating the file. Limit: a SIGHUP sent with the terminal still open, just before a prompt subshell forks, is missed by that subshell (a real hang-up also makes its read fail).
 - Append Hostname asked "Add to config anyway? (y/N): N" as a pre-filled text prompt; now the same `[y/N]` question as everywhere else (bash + PS).
+- PowerShell had no Esc in free-text prompts (`Read-Host`), the key list or View Config (only Q). Fixed: `Read-ColoredInput` uses the shared `Read-LineKeys` editor (Esc cancels, Ctrl+U clears); Esc closes the pager, key list and key viewer.
+
+## Open: bash vs PowerShell differences to decide (not changed)
+
+- Menu wording differs for most items (bash "Generate Local SSH Key" / PS "Generate SSH Key (Without Installation)", "Delete Remote SSH Key" / "Delete SSH Key From A Remote Machine", …).
+- Conf Defaults key: bash F5 (F10 is taken by GNOME Terminal), PS F10.
+- Hint bars list different keys (PS: Home/End, F1 Help, F10 Conf, V View, E Edit).
+- PS screens use a teal title bar between rules; bash uses a box.
