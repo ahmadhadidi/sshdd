@@ -79,7 +79,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **K3** ✅ every hotkey and its lowercase; unknown keys (letters, F12, Ctrl+Up) ignored; E runs `$EDITOR` on the config.
 - **K4** ✅ arrow latency < 80 ms; held-down arrows never dropped · 🔨 same in pickers and pagers.
 - **K5** 🔨 Home/End/PgUp/PgDn wherever a list or pager is shown.
-- **K6** 🔨 type-to-filter, Backspace, Ctrl+W in pickers and text prompts; paste of 2 KB text.
+- **K6** ✅ Ctrl+U clears a pre-filled prompt (added; readline convention) · ✅ Backspace / Ctrl+W (older tests) · 🔨 paste of 2 KB text.
 
 ### X — termination and terminal state
 - **X1** ✅ Ctrl+C, Ctrl+Z, SIGTERM, SIGHUP at the menu and during host probes.
@@ -105,7 +105,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **Z3** ✅ remote key removal keeps other keys and mode 600 (bash + PS) · 🔨 install/promote paths.
 
 ### R — remote (CT 213)
-- **R1–R4** ✅ end to end on CT 213 (`test_remote_ops.py`, 01, `test_lxc_connection.py`): generate & install, install, test (authorized / not), delete (others and mode kept), list · 🔨 promote (P), add config block (N), append hostname (A). Note: the older tests 02–07 only open each screen.
+- **R1–R4** ✅ end to end on CT 213 (`test_remote_ops.py`, 01, `test_lxc_connection.py`): generate & install, install, test (authorized / not), delete (others and mode kept), list, promote, append hostname, add config block. Note: the older tests 02–07 only open each screen.
 - **R5** 🔨 password auth and key auth for every remote op.
 - **R6** 🔨 unreachable host / closed port.
 - **R7** ✅ installing a key that's already there doesn't duplicate it; a last line without newline isn't corrupted.

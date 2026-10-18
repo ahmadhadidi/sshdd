@@ -111,6 +111,18 @@ read_colored_input() {
                     for (( _i=0; _i<_back; _i++ )); do printf '\b' >&2; done
                 fi
                 ;;
+            $'\x15')
+                # Ctrl+U — delete everything before the cursor (readline convention)
+                if (( cur > 0 )); then
+                    local _deleted=$cur rest="${buf:$cur}" _i
+                    buf="$rest"; cur=0
+                    for (( _i=0; _i<_deleted; _i++ )); do printf '\b' >&2; done
+                    printf '%s' "${rest}" >&2
+                    for (( _i=0; _i<_deleted; _i++ )); do printf ' ' >&2; done
+                    local _back=$(( ${#rest} + _deleted ))
+                    for (( _i=0; _i<_back; _i++ )); do printf '\b' >&2; done
+                fi
+                ;;
             $'\x1b\x7f'|$'\x1b\x08'|$'\x17')
                 # ALT+Backspace or Ctrl+W — delete word before cursor
                 if (( cur > 0 )); then
@@ -213,6 +225,18 @@ read_host_with_default() {
                     printf '\b' >&2
                     printf '%s ' "${rest}" >&2
                     local _back=$(( ${#rest} + 1 )) _i
+                    for (( _i=0; _i<_back; _i++ )); do printf '\b' >&2; done
+                fi
+                ;;
+            $'\x15')
+                # Ctrl+U — delete everything before the cursor (readline convention)
+                if (( cur > 0 )); then
+                    local _deleted=$cur rest="${buf:$cur}" _i
+                    buf="$rest"; cur=0
+                    for (( _i=0; _i<_deleted; _i++ )); do printf '\b' >&2; done
+                    printf '%s' "${rest}" >&2
+                    for (( _i=0; _i<_deleted; _i++ )); do printf ' ' >&2; done
+                    local _back=$(( ${#rest} + _deleted ))
                     for (( _i=0; _i<_back; _i++ )); do printf '\b' >&2; done
                 fi
                 ;;

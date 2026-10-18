@@ -153,3 +153,18 @@ def test_non_printable_chars_filtered(run_tui_no_keys):
     time.sleep(0.15)
     child.send("Q")
     child.expect(pexpect.EOF, timeout=5)
+
+
+def test_ctrl_u_clears_prefilled_default(isolated_home):
+    """K6: Ctrl+U deletes everything before the cursor in a pre-filled prompt (readline convention)."""
+    from .screen import Term
+    with Term(home=isolated_home, args="--user someone") as t:
+        t.wait_for("Quit")
+        t.press("T")
+        t.wait_for("Enter remote IP")
+        t.press("10\r")
+        t.wait_for("Remote username")
+        t.press("\x15bob")
+        line = t.screen.display[t.screen.cursor.y]
+        assert "Remote username:" in line and line.split("Remote username:")[1].strip() == "bob", line
+        t.press("ESC")

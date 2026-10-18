@@ -56,7 +56,8 @@ def _answer_password(t, until="Press any key", timeout=20, yes_no="y"):
         if until in txt:
             return txt
         last = txt.rstrip()
-        if last.endswith("password:"):
+        at_cursor = t.screen.display[t.screen.cursor.y].rstrip()   # the spinner may own the bottom row
+        if at_cursor.endswith("password:") or last.endswith("password:"):
             t.press(LXC_PASS + "\r")
         elif last.endswith("[Y/n]") or last.endswith("[y/N]"):
             t.press(yes_no + "\r")
@@ -152,3 +153,54 @@ def test_install_when_last_line_has_no_newline(ct):
         _answer_password(t, yes_no="n")
     lines = _remote_keys().splitlines()
     assert KEEP in lines and any(l.split()[1:2] == [_pub(ct, "k1")] for l in lines), lines
+
+
+def test_promote_replaces_old_key(ct):
+    """P: k2 goes in, k1 (demoted) comes out, KEEP stays."""
+    _set_remote_keys(KEEP, (ct / ".ssh" / "k1.pub").read_text())
+    with Term(home=ct, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("P")
+        t.wait_for("Esc cancel")
+        t.press("k1\r")                                  # demote
+        t.wait_for("Select host alias")
+        t.press(ALIAS + "\r")
+        t.pump(1)                                        # third picker reuses the first one's rows
+        t.wait_for("Select SSH key")
+        t.press("k2\r")                                  # promote
+        _pick_host(t)
+        _answer_password(t, timeout=40)                  # install, add IdentityFile (y), remove k1 (y)
+    keys = _remote_keys()
+    assert _pub(ct, "k2") in keys and _pub(ct, "k1") not in keys and KEEP in keys and "MODE=600" in keys
+
+
+def test_append_hostname_adds_identityfile_after_verifying(ct):
+    """A: k1 is installed, so it verifies and the config block gains IdentityFile k1."""
+    _set_remote_keys(KEEP, (ct / ".ssh" / "k1.pub").read_text())
+    with Term(home=ct, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("A")
+        t.wait_for("Esc cancel")
+        t.press("k1\r")
+        _pick_host(t)
+        txt = _answer_password(t, yes_no="n")
+    assert "verified" in txt, txt
+    assert "k1" in (ct / ".ssh" / "config").read_text()
+
+
+def test_add_config_block_from_remote_keys(ct):
+    """N: reads the CT's authorized_keys, recognises k2 and writes a config block using it."""
+    _set_remote_keys(KEEP, (ct / ".ssh" / "k2.pub").read_text())
+    (ct / ".ssh" / "config").write_text("")
+    with Term(home=ct, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("N")
+        t.wait_for("Enter remote IP")                    # no hosts configured: manual entry
+        t.press(LXC_HOST + "\r")
+        t.wait_for("Remote username")
+        t.press("\r")
+        _answer_password(t, until="Alias for this host", timeout=30)
+        t.press("\x15newbox\r")                          # Ctrl+U clears the default, then the alias
+        _answer_password(t, yes_no="n")
+    cfg = (ct / ".ssh" / "config").read_text()
+    assert "Host newbox" in cfg and LXC_HOST in cfg and "k2" in cfg, cfg
