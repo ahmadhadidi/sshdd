@@ -63,8 +63,8 @@ _hint_bar() {
 
 show_main_menu() {
     local -a m_type=(
-        header  item    item    item    item    item    item    item
-        header  item    item    item    item    item    item
+        header  item    item    item    item    item    item    item    item    item
+        header  item    item    item    item    item    item    item    item
         header  item    item    item    item
     )
     local -a m_label=(
@@ -76,6 +76,8 @@ show_main_menu() {
         "🔄  Promote Key on A Remote Machine"
         "📋  List Authorized Keys on Remote Host"
         "🔗  Add Config Block for Existing Remote Key"
+        "📡  List Known Hosts on Remote Host"
+        "🧽  Forget Host Key on Remote Host"
         "Local"
         "✨  Generate Local SSH Key"
         "🗝   List Keys Locally"
@@ -83,6 +85,8 @@ show_main_menu() {
         "🗑   Delete Local SSH Key"
         "❌  Remove Config: Unlink SSH Key from Host"
         "📥  Import Key from Another Machine"
+        "📜  List Known Hosts"
+        "🧹  Forget Host Key"
         "Config File"
         "🏚   Remove Host from SSH Config"
         "👁   View Config"
@@ -90,13 +94,13 @@ show_main_menu() {
         "🚪  Exit"
     )
     local -a m_choice=(
-        ""   "1"  "15" "2"  "3"  "4"  "16" "17"
-        ""   "5"  "6"  "7"  "8"  "9"  "18"
+        ""   "1"  "15" "2"  "3"  "4"  "16" "17" "21" "22"
+        ""   "5"  "6"  "7"  "8"  "9"  "18" "19" "20"
         ""   "12" "13" "14" "q"
     )
     local -a m_hotkey=(
-        ""   "G"  "I"  "T"  "D"  "P"  "Z"  "N"
-        ""   "W"  "L"  "A"  "X"  "R"  "M"
+        ""   "G"  "I"  "T"  "D"  "P"  "Z"  "N"  "O"  "B"
+        ""   "W"  "L"  "A"  "X"  "R"  "M"  "K"  "F"
         ""   "H"  "V"  "E"  "Q"
     )
 

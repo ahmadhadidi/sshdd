@@ -148,16 +148,50 @@ def test_wrong_password_message(ct_home):
         _to_menu(t)
 
 
-@pytest.mark.lxc
-def test_changed_host_key_message(ct_home):
-    """A known_hosts entry with a different key: ssh refuses; the screen must say why."""
-    fake = subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(ct_home / "fakehost")], check=True)
+def _ct_with_fake_known_key(ct_home):
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(ct_home / "fakehost")], check=True)
     pub = (ct_home / "fakehost.pub").read_text().split()
     (ct_home / ".ssh" / "known_hosts").write_text(f"192.168.0.213 {pub[0]} {pub[1]}\n")
+
+
+@pytest.mark.lxc
+def test_changed_host_key_message(ct_home):
+    """A known_hosts entry with a different key: sshdd says so before connecting (TODO #15);
+    keeping the old key cancels the operation."""
+    _ct_with_fake_known_key(ct_home)
     with Term(home=ct_home, args="--user testuser") as t:
-        txt = _list_keys_on_ct(t, "testpass")
-        assert "host key" in txt.lower() or "IDENTIFICATION HAS CHANGED" in txt, txt
-        _to_menu(t)
+        t.wait_for("Quit")
+        t.press("Z")
+        t.wait_for("Select remote host", timeout=8)
+        t.press("ct\r")
+        t.wait_for("retry? [y/N]", timeout=15)
+        assert "Host key for 192.168.0.213 (ct) changed" in t.text(), t.text()
+        t.press("n\r")
+        t.wait_for(MAIN)
+
+
+@pytest.mark.lxc
+def test_changed_host_key_forget_then_connects(ct_home):
+    """The recreated-CT case end to end: forget the old key, ssh records the new one, the op runs."""
+    _ct_with_fake_known_key(ct_home)
+    with Term(home=ct_home, args="--user testuser") as t:
+        t.wait_for("Quit")
+        t.press("Z")
+        t.wait_for("Select remote host", timeout=8)
+        t.press("ct\r")
+        t.wait_for("retry? [y/N]", timeout=15)
+        t.press("y\r")
+        t.wait_for("Remote username")
+        t.press("\r")
+        end = __import__("time").time() + 40
+        while "Press any key" not in t.text():
+            assert __import__("time").time() < end, t.text()
+            t.pump(0.5)
+            if t.screen.display[t.screen.cursor.y].rstrip().endswith("password:"):
+                t.press("testpass\r")
+        assert "Authorized keys on" in t.text() or "No authorized_keys" in t.text(), t.text()
+    kh = (ct_home / ".ssh" / "known_hosts").read_text()
+    assert (ct_home / "fakehost.pub").read_text().split()[1] not in kh
 
 
 def test_ctrl_s_does_not_freeze(tmp_path):

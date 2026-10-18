@@ -111,7 +111,7 @@ Direct, factual phrasing. No marketing language. Metric units. Separate facts fr
 
 ## skills
 
-`.claude/skills/` holds project-specific procedures learned the hard way — each one a symptom, the root cause, and the fix, not a restatement of what the code does. Check there before re-deriving a debugging path from scratch. When a new one is learned — a workaround, a non-obvious verification technique, a gotcha that cost real time to diagnose — add a skill for it per the "After finishing a task" section above, rather than letting the knowledge live only in a commit message or a chat transcript.
+`.claude/skills/` (now: `ct-connection-closed`) holds project-specific procedures learned the hard way — each one a symptom, the root cause, and the fix, not a restatement of what the code does. Check there before re-deriving a debugging path from scratch. When a new one is learned — a workaround, a non-obvious verification technique, a gotcha that cost real time to diagnose — add a skill for it per the "After finishing a task" section above, rather than letting the knowledge live only in a commit message or a chat transcript.
 
 ## graphify
 

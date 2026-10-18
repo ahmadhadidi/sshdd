@@ -37,6 +37,7 @@ function Remove-HostFromSSHConfig {
         return
     }
 
+    $hk = Resolve-HostKeyName $hostName                 # before removal: ssh -G still knows the alias
     Write-Host ""
     Write-Out 'dim' "Block that will be removed:"
     Write-Host $match.Value -ForegroundColor Gray
@@ -50,6 +51,15 @@ function Remove-HostFromSSHConfig {
     $newConfig = ($config -replace [regex]::Escape($match.Value), "").TrimEnd() + "`n"
     Write-TextFile $configPath $newConfig
     Write-Out 'ok' "Host '$hostName' removed from SSH config."
+
+    # TODO #15: offer to forget its host key too, and say when another Host block still uses it.
+    $known = @(Get-KnownHostKeys $hk)
+    if (-not $known) { return }
+    $others = @(Get-ConfiguredSSHHosts | Where-Object { $_.HostName -eq $hk.Host } | ForEach-Object { $_.Alias })
+    Write-Out 'plain' "Known keys for $($hk.Name):"
+    $known | ForEach-Object { Write-Out 'dim' (Format-KnownHostKey $_) }
+    if ($others) { Write-Out 'warn' "Still used by: $($others -join ' ')" }
+    $null = Confirm-UserChoice -Message "Also forget its host key?" -DefaultAnswer 'n' -Action { $null = Remove-KnownHostKeys $hk }
 }
 
 

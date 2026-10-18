@@ -94,7 +94,14 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 - `_ensure_ssh_dir`:280 — `mkdir -p ~/.ssh && chmod 700`
 - `_write_key_pair`:291 `DEST_PRIV DEST_PUB DATA DATA [copy_mode]` — write or copy a key pair with permission enforcement
 - `_print_identity_files`:312 `ID_LOOKUP` — prints IdentityFile entries for a host (dim style)
-- `_prompt_remote`:323 — prompts for host + user, sets `_REMOTE_HOST`, `_REMOTE_USER`, `_REMOTE_ALIAS`
+- `_prompt_host` — host picker only, sets `_REMOTE_HOST`, `_REMOTE_ALIAS`
+- `_prompt_remote`:323 — prompts for host + user, sets `_REMOTE_HOST`, `_REMOTE_USER`, `_REMOTE_ALIAS`; runs `_hostkey_check` between the two (every remote op goes through here)
+
+**known_hosts (TODO #15):**
+- `_hk_resolve TARGET` — `ssh -G` → `_HK_NAME` (HostKeyAlias or HostName, `[name]:port` off 22), `_HK_HOST`, `_HK_PORT`, `_HK_FILES`, `_HK_HASH`. Never build the known_hosts name by hand.
+- `_hk_known` / `_hk_show` / `_hk_forget` (`ssh-keygen -F/-R`, hashed entries too; `-R` keeps `FILE.old`)
+- `_hostkey_check TARGET` — no known entry, or ProxyJump/ProxyCommand set (the scan would reach another machine): nothing (no extra connection). `@cert-authority`/`@revoked` lines don't count as entries. Only a scan of exactly one key with a fingerprint is compared and recorded (what the user is shown is what gets written). Known: `ssh-keyscan` of ONE key type (the preferred known one: ed25519 > ecdsa > rsa), since OpenSSH 9.8+ PerSourcePenalties charges every connection that doesn't log in. No match: old/new fingerprints + `[y/N]`; yes = `_hk_replace` (forget, then record the scanned key so the op's ssh doesn't ask again); no = the op is cancelled.
+- `_hk_print_list LISTING LOOKUPS` — numbered list; hashed entries named via the config hosts' lookups
 
 ### prompts.sh
 
@@ -151,6 +158,9 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 - `_menu_list_authorized_keys`:362 — SSHes to target, fetches `authorized_keys`, displays numbered list
 - `_menu_add_config_block`:389 — delegates to `register_remote_host_config` (reads remote auth_keys, creates host config entry)
 - `_menu_import_key`:394 — delegates to `import_external_ssh_key` (local path / SCP / paste)
+- `_menu_list_known_hosts` (19, K) / `_menu_forget_host_key` (20, F) — local `~/.ssh/known_hosts`
+- `_menu_list_remote_known_hosts` (21, O) / `_menu_forget_remote_host_key` (22, B) — the SSH user's `~/.ssh/known_hosts` on the target; names go on stdin (`_REMOTE_KH_*`), never into the command
+- `_hk_page` — pages a listing; `show_paged` reads keys from `/dev/tty` because stdin is the pipe
 - `_do_create_config`:402 — creates `~/.ssh/config` with 600 permissions; sets `_CONFIG_MISSING=0`
 - `_check_config_at_start`:412 — full-screen prompt on startup when config absent; offers to create it
 
@@ -207,6 +217,8 @@ The bash implementation targets bash 3.2 exclusively (macOS system shell, GPL v2
 - **Esc inside `$(...)`.** `read_colored_input` / `read_host_with_default` return 1 on Esc, but `_SELECT_CANCELLED` set inside `$(...)` never reaches the caller. Always `x=$(read_... ) || return 1`; never test `_SELECT_CANCELLED` after a `$(...)` prompt, and never let Esc fall through to a default (`confirm_user_choice`).
 - **`_LAST_SELECTED_ALIAS` subshell loss.** Any global set inside `$()` is discarded. Use `get_alias_for_host_ip` as a reverse-lookup after the subshell returns, or use `_prompt_remote` which handles this correctly.
 - **Ctrl+C guard.** The INT/TERM/TSTP/HUP traps only set the exit code; cleanup lives exclusively in the EXIT trap. The `_MENU_CLEANED_UP=1` flag prevents a second cleanup run.
+- **`${f/#$HOME/~}` differs by version**: bash 5 expands the `~` (giving `$HOME` back), 3.2 doesn't. Use `$_TILDE`.
+- **`_with_timeout` inside a pipe or `$(…)`**: its watcher `sleep` must not hold stdout, or the reader waits the full timeout (fixed: watcher output goes to /dev/null).
 - **Temp files: `_mktemp_reg VAR PREFIX`**, never `VAR=$(mktemp)` (a signal during the subshell loses the name). **Timeouts: `_with_timeout`**, never GNU `timeout` (not on macOS). `ssh`/`scp` are functions adding `ConnectTimeout=10`; call `command ssh` only when you mean the bare binary.
 - **Cleanup on any exit (TODO #10).** Register every temp file with `_cleanup_add` (ssh-helpers.sh); `_menu_cleanup` removes them, kills background jobs and `_destroy_askpass`es. Kill background jobs with TERM then CONT: Ctrl+Z stops the whole process group and a stopped job ignores TERM (a `wait` on it hangs). Limit: a SIGTERM sent to sshdd alone while a foreground `ssh` runs is handled only after that `ssh` exits (bash defers traps until the foreground child returns); Ctrl+C and a closed terminal reach `ssh` too. Tests: `tests/test_termination.py`.
 - **Terminal resize.** `trap 'need_full=1' WINCH` in `show_main_menu` triggers a full redraw on the next loop iteration. The poll-based resize detection alone is insufficient — if a key arrives during a resize, the poll branch is skipped and only a differential update runs, leaving static elements (rules, title, hint bar) unredrawn.

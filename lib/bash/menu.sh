@@ -10,6 +10,8 @@ _MENU_SH_LOADED=1
 #             _menu_conf_defaults  _menu_remove_host  _menu_view_config
 #             _menu_edit_config  _menu_list_authorized_keys
 #             _menu_add_config_block  _menu_import_key
+#             _menu_list_known_hosts  _menu_forget_host_key
+#             _menu_list_remote_known_hosts  _menu_forget_remote_host_key
 #   support:  _do_create_config  _check_config_at_start
 
 # ─── Menu dispatcher ──────────────────────────────────────────────────────────
@@ -36,6 +38,10 @@ invoke_menu_choice() {
         16) _menu_list_authorized_keys ;;
         17) _menu_add_config_block ;;
         18) _menu_import_key ;;
+        19) _menu_list_known_hosts ;;
+        20) _menu_forget_host_key ;;
+        21) _menu_list_remote_known_hosts ;;
+        22) _menu_forget_remote_host_key ;;
     esac
 }
 
@@ -392,6 +398,137 @@ _menu_list_authorized_keys() {   # choice 16
             printf '  \e[90m%3d\e[0m  \e[36m%s\e[0m\n' "$i" "$line"
             (( i++ ))
         done <<< "$keys"
+    fi
+}
+
+# ─── known_hosts (TODO #15) ───────────────────────────────────────────────────
+
+# Remote side: the SSH user's ~/.ssh/known_hosts. Host names come on stdin, never in the command.
+_REMOTE_KH_LOOKUP='f=$HOME/.ssh/known_hosts; [ -s "$f" ] || exit 0; command -v ssh-keygen >/dev/null || { echo "ssh-keygen not found on the remote host" >&2; exit 3; }; while read -r n; do ssh-keygen -l -F "$n" -f "$f"; done; true'
+_REMOTE_KH_LIST='f=$HOME/.ssh/known_hosts; [ -s "$f" ] || exit 0; command -v ssh-keygen >/dev/null || { echo "ssh-keygen not found on the remote host" >&2; exit 3; }; ssh-keygen -lf "$f"; echo --; while read -r n; do ssh-keygen -l -F "$n" -f "$f"; done; true'
+# "done" only when no plain entry for any name is left (ssh-keygen -R keeps @cert-authority/@revoked lines).
+_REMOTE_KH_FORGET='f=$HOME/.ssh/known_hosts; rc=0; while read -r n; do ssh-keygen -R "$n" -f "$f" >/dev/null 2>&1; ssh-keygen -F "$n" -f "$f" 2>/dev/null | grep -q "found: line [0-9]* *$" && rc=1; done; [ $rc = 0 ] && echo done'
+
+# The known_hosts names of the configured hosts (to name hashed entries).
+_hk_config_names() {
+    local alias
+    while IFS='|' read -r alias _ _; do
+        _hk_resolve "$alias"
+        printf '%s\n' "$_HK_NAME"
+    done < <(get_configured_ssh_hosts) | sort -u
+}
+
+# Page stdin's lines below the op screen; the pager waits for Q/Esc itself. Its keys come from
+# the terminal: stdin is the listing pipe.
+_hk_page() {
+    local -a lines=()
+    local l
+    while IFS= read -r l; do lines+=("$l"); done
+    show_paged "${lines[@]}" </dev/tty
+}
+
+_menu_list_known_hosts() {       # choice 19
+    local f="$SSH_DIR/known_hosts" n lookups=''
+    show_op_banner "file" "$f"
+    if [[ ! -s $f ]]; then
+        _out dim 'No known hosts in %s.' "$f"
+        return 0
+    fi
+    while IFS= read -r n; do
+        lookups+=$(ssh-keygen -l -F "$n" -f "$f" 2>/dev/null)$'\n'
+    done < <(_hk_config_names)
+    {
+        printf '  \e[1;37mKnown hosts in %s:\e[0m\n' "$f"
+        _hk_print_list "$(ssh-keygen -lf "$f" 2>/dev/null)" "$lookups" || _out dim 'No valid entries.'
+    } | _hk_page
+    return 1
+}
+
+_menu_forget_host_key() {        # choice 20
+    show_op_banner "file" "$SSH_DIR/known_hosts"
+    _prompt_host || return 1
+    _hk_resolve "${_REMOTE_ALIAS:-$_REMOTE_HOST}"
+    local known; known=$(_hk_known)
+    if [[ -z $known ]]; then
+        _out dim 'No known host keys for %s.' "$_HK_NAME"
+        return 0
+    fi
+    _out plain 'Known keys for %s:' "$_HK_NAME"
+    _hk_show "$known"
+    confirm_user_choice "Forget these keys?" n _hk_forget
+    return 0
+}
+
+_menu_list_remote_known_hosts() {   # choice 21
+    show_op_banner "host" "$(hostname)" "user" "$DEFAULT_USER"
+    _prompt_remote || return 1
+    local target out
+    target=$(resolve_ssh_target "$_REMOTE_HOST" "$_REMOTE_USER")
+    printf '  \e[90mFetching known_hosts from %s...\e[0m\n' "$target"
+    _ssh_fence "$target"
+    out=$(_hk_config_names | ssh "$target" "$_REMOTE_KH_LIST" 2>&1) || {
+        _ssh_fence_close
+        _out error 'Failed to fetch known_hosts.'
+        _ssh_why "$out"
+        return 0
+    }
+    _ssh_fence_close
+    if [[ -z $out ]]; then
+        _out dim 'No known_hosts on %s.' "$target"
+        return 0
+    fi
+    {
+        printf '  \e[1;37mKnown hosts on %s:\e[0m\n' "$target"
+        _hk_print_list "${out%%$'\n'--$'\n'*}" "${out#*$'\n'--$'\n'}" || _out dim 'No valid entries.'
+    } | _hk_page
+    return 1
+}
+
+_menu_forget_remote_host_key() {    # choice 22
+    show_op_banner "host" "$(hostname)" "user" "$DEFAULT_USER"
+    _prompt_remote || return 1
+    local target out names
+    target=$(resolve_ssh_target "$_REMOTE_HOST" "$_REMOTE_USER")
+    _out plain 'Host to forget on %s:' "$target"
+    _prompt_host || return 1
+    _hk_resolve "${_REMOTE_ALIAS:-$_REMOTE_HOST}"
+    names=$_HK_NAME
+    [[ -n $_REMOTE_ALIAS && $_REMOTE_ALIAS != "$_HK_NAME" ]] && names+=$'\n'$_REMOTE_ALIAS
+    _ssh_fence "$target"
+    out=$(printf '%s\n' "$names" | ssh "$target" "$_REMOTE_KH_LOOKUP" 2>&1) || {
+        _ssh_fence_close
+        _out error 'Failed to read known_hosts on %s.' "$target"
+        _ssh_why "$out"
+        return 0
+    }
+    _ssh_fence_close
+    local host t fp n=0 marker=0
+    while read -r host t fp; do
+        if [[ $host == '#' ]]; then                 # "# Host x found: line 3 [CA|REVOKED]"
+            [[ $fp =~ found:\ line\ [0-9]+\ *$ ]]
+            marker=$?
+            continue
+        fi
+        [[ -z $fp ]] && continue
+        (( marker )) && continue
+        (( n++ == 0 )) && _out plain 'Known keys for %s on %s:' "${names//$'\n'/, }" "$target"
+        _out dim '%-8s %s  (%s)' "$t" "$fp" "$host"
+    done <<< "$out"
+    if (( n == 0 )); then
+        _out dim 'No known host keys for %s on %s.' "${names//$'\n'/, }" "$target"
+        return 0
+    fi
+    local response
+    response=$(read_colored_input "Forget these keys on $target? [y/N]" cyan) || return 1
+    [[ $response =~ ^[yY]([eE][sS])?$ ]] || { printf '  \e[33mAction cancelled.\e[0m\n'; return 0; }
+    _ssh_fence "$target"
+    out=$(printf '%s\n' "$names" | ssh "$target" "$_REMOTE_KH_FORGET" 2>&1)
+    _ssh_fence_close
+    if [[ $out == *done* ]]; then
+        _out ok 'Removed %s key(s) from %s:~/.ssh/known_hosts (backup: known_hosts.old).' "$n" "$target"
+    else
+        _out error 'Failed to edit known_hosts on %s.' "$target"
+        _ssh_why "$out"
     fi
 }
 

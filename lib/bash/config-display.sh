@@ -170,6 +170,7 @@ remove_host_from_ssh_config() {
         return
     fi
 
+    _hk_resolve "$host_name"            # before removal: ssh -G still knows the alias
     printf '\n  \e[90mBlock that will be removed:\e[0m\n'
     printf '\e[37m%s\e[0m\n' "$_HOST_BLOCK"
 
@@ -188,6 +189,19 @@ remove_host_from_ssh_config() {
     # No whole-file cleanup afterwards: other blocks stay byte-for-byte (plan D1).
 
     printf '  \e[32mHost '\''%s'\'' removed from SSH config.\e[0m\n' "$host_name"
+
+    # TODO #15: offer to forget its host key too, unless another Host block still uses it.
+    local known others='' a h
+    known=$(_hk_known)
+    [[ -z $known ]] && return 0
+    while IFS='|' read -r a h _; do
+        [[ $h == "$_HK_HOST" ]] && others+=" $a"
+    done < <(get_configured_ssh_hosts)
+    _out plain 'Known keys for %s:' "$_HK_NAME"
+    _hk_show "$known"
+    [[ -n $others ]] && _out warn 'Still used by:%s' "$others"
+    confirm_user_choice "Also forget its host key?" n _hk_forget
+    return 0
 }
 
 show_ssh_key_inventory() {

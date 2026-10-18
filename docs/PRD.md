@@ -11,6 +11,8 @@ Terminal TUI SSH key manager. Two parallel implementations: `sshdd.sh` (bash 3.2
 - Generate ED25519 keys and deploy them to remote hosts.
 - Keep `~/.ssh/config` in sync (add, edit, remove host blocks; attach keys).
 - Test connections; list, promote, rotate and delete keys locally and remotely.
+- Recreated hosts (e.g. a destroyed CT) don't block work: the host key is checked before connecting, and
+  `known_hosts` entries can be listed and forgotten here and on a remote host (TODO #15).
 - Run with no install: straight from GitHub (`curl` / `irm`) or from a clone, with only Bash/PowerShell and OpenSSH (`sshpass` optional).
 - Bash and PowerShell behave the same (parity).
 

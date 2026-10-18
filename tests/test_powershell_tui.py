@@ -17,6 +17,7 @@ SCREENS = {   # hotkey -> words from the screen's title
     "P": "Promote Key", "Z": "List Authorized Keys", "N": "Add Config Block", "W": "Generate SSH Key",
     "L": "List SSH Keys", "A": "Append SSH Key", "X": "Delete an SSH Key Locally", "R": "Remove an SSH Key",
     "M": "Import SSH Key", "H": "Remove Host", "V": "View SSH Config",
+    "O": "List Known Hosts on Remote", "B": "Forget Host Key on Remote", "K": "List Known Hosts", "F": "Forget Host Key",
 }
 
 

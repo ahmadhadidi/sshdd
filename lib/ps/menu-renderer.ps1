@@ -13,6 +13,8 @@ function Show-MainMenu {
         [pscustomobject]@{ Type = "item";   Label = "🔄  Promote Key on A Remote Machine";                Choice = "4";  Hotkey = "P" }
         [pscustomobject]@{ Type = "item";   Label = "📋  List Authorized Keys on Remote Host";            Choice = "16"; Hotkey = "Z" }
         [pscustomobject]@{ Type = "item";   Label = "🔗  Add Config Block for Existing Remote Key";       Choice = "17"; Hotkey = "N" }
+        [pscustomobject]@{ Type = "item";   Label = "📡  List Known Hosts on Remote Host";                Choice = "21"; Hotkey = "O" }
+        [pscustomobject]@{ Type = "item";   Label = "🧽  Forget Host Key on Remote Host";                 Choice = "22"; Hotkey = "B" }
         [pscustomobject]@{ Type = "header"; Label = "Local" }
         [pscustomobject]@{ Type = "item";   Label = "✨  Generate SSH Key (Without Installation)";        Choice = "5";  Hotkey = "W" }
         [pscustomobject]@{ Type = "item";   Label = "🗝️  List SSH Keys";                                  Choice = "6";  Hotkey = "L" }
@@ -20,6 +22,8 @@ function Show-MainMenu {
         [pscustomobject]@{ Type = "item";   Label = "🗑️  Delete an SSH Key Locally";                      Choice = "8";  Hotkey = "X" }
         [pscustomobject]@{ Type = "item";   Label = "❌  Remove an SSH Key From Config";                  Choice = "9";  Hotkey = "R" }
         [pscustomobject]@{ Type = "item";   Label = "📥  Import SSH Key from Another Machine";            Choice = "18"; Hotkey = "M" }
+        [pscustomobject]@{ Type = "item";   Label = "📜  List Known Hosts";                               Choice = "19"; Hotkey = "K" }
+        [pscustomobject]@{ Type = "item";   Label = "🧹  Forget Host Key";                                Choice = "20"; Hotkey = "F" }
         [pscustomobject]@{ Type = "header"; Label = "Config File" }
         [pscustomobject]@{ Type = "item";   Label = "🏚️  Remove Host from SSH Config";                    Choice = "12"; Hotkey = "H" }
         [pscustomobject]@{ Type = "item";   Label = "👁️  View SSH Config";                                Choice = "13"; Hotkey = "V" }

@@ -2,6 +2,7 @@
 # EXPORTS: Write-Out  Write-OutItem  Show-OpBanner
 #          Write-SSHFence  Write-SSHFenceClose
 #          Invoke-RemotePrompt  Write-IdentityFiles  Ensure-SSHDir  Write-KeyPair
+#          Resolve-HostKeyName  Get-KnownHostKeys  Remove-KnownHostKeys  Test-HostKey  Write-KnownHostsList
 
 # ─── Output helpers ───────────────────────────────────────────────────────────
 
@@ -240,7 +241,164 @@ function Invoke-RemotePrompt {
     $script:_RemoteAlias = if ($script:_LastSelectedAlias) { $script:_LastSelectedAlias } else {
         Get-AliasForHostIP $script:_RemoteHost
     }
+    $target = if ($script:_RemoteAlias) { $script:_RemoteAlias } else { $script:_RemoteHost }
+    if (-not (Test-HostKey $target)) { throw [System.OperationCanceledException]::new() }
     $script:_RemoteUser  = Read-RemoteUser -DefaultUser $DefaultUserName
+}
+
+
+# ─── known_hosts (TODO #15) ───────────────────────────────────────────────────
+# Same as bash: a destroyed and recreated CT has new host keys and ssh refuses it with
+# "REMOTE HOST IDENTIFICATION HAS CHANGED". ssh-keygen does the lookups (hashed entries too).
+
+function Resolve-HostKeyName {
+    # How ssh itself names TARGET in known_hosts (HostKeyAlias or HostName, "[name]:port" off
+    # port 22), plus its UserKnownHostsFile list, HashKnownHosts and ProxyJump/ProxyCommand, from `ssh -G`.
+    param([string]$Target)
+    $r = @{ Host = $Target; Port = '22'; Alias = ''; Files = @(); Hash = 'no'; Proxy = '' }
+    foreach ($line in @(ssh -G $Target 2>$null)) {
+        $k, $v = "$line" -split ' ', 2
+        switch ($k) {
+            'hostname'           { $r.Host = $v }
+            'port'               { $r.Port = $v }
+            'hostkeyalias'       { $r.Alias = $v }
+            'userknownhostsfile' { $r.Files = @($v -split ' ' | ForEach-Object { $_ -replace '^~', $env:USERPROFILE }) }
+            'hashknownhosts'     { $r.Hash = $v }
+            { $_ -in 'proxyjump', 'proxycommand' } { if ($v -ne 'none') { $r.Proxy = $v } }
+        }
+    }
+    $n = if ($r.Alias) { $r.Alias } else { $r.Host }
+    $r.Name = if ($r.Port -eq '22') { $n } else { "[$n]:$($r.Port)" }
+    return [pscustomobject]$r
+}
+
+function Get-KnownHostKeys {
+    # One object (Type, Fingerprint, File, Line) per known_hosts entry for $Hk.Name. @cert-authority
+    # and @revoked lines ("found: line 3 CA" / "REVOKED") aren't host keys and ssh-keygen -R keeps them.
+    param($Hk)
+    foreach ($f in $Hk.Files) {
+        if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { continue }
+        $n = $null
+        foreach ($l in @(ssh-keygen -l -F $Hk.Name -f $f 2>$null)) {
+            if ($l -like '# Host *') { $n = if ($l -match 'found: line (\d+)\s*$') { $Matches[1] } else { $null }; continue }
+            if ($n) {
+                $p = "$l".Trim() -split '\s+'
+                [pscustomobject]@{ Type = $p[-2]; Fingerprint = $p[-1]; File = $f; Line = $n }
+                $n = $null
+            }
+        }
+    }
+}
+
+function Format-KnownHostKey {
+    param($K)
+    $f = $K.File
+    if ($f.StartsWith($env:USERPROFILE)) { $f = '~' + $f.Substring($env:USERPROFILE.Length) }
+    return "$($K.Type) $($K.Fingerprint)  ($f line $($K.Line))"
+}
+
+function Remove-KnownHostKeys {
+    # Remove every $Hk.Name entry from $Hk.Files; ssh-keygen keeps the old file as FILE.old.
+    param($Hk)
+    foreach ($f in $Hk.Files) {
+        if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { continue }
+        $n = @(ssh-keygen -F $Hk.Name -f $f 2>$null | Where-Object { $_ -match '^# Host .* found: line \d+\s*$' }).Count
+        if (-not $n) { continue }
+        $null = ssh-keygen -R $Hk.Name -f $f 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Out 'ok' "Removed $n key(s) for $($Hk.Name) from $f (backup: $f.old)." }
+        else { Write-Out 'error' "Could not edit $f."; return $false }
+    }
+    return $true
+}
+
+function Add-KnownHostScan {
+    # Record the one scanned key the user was shown, so the operation's ssh doesn't ask
+    # "Are you sure you want to continue connecting?" right after they said yes.
+    param($Hk, [string]$Scan)
+    $f = @($Hk.Files)[0]
+    if (-not $f -or -not $Scan) { return $true }
+    $p = $Scan -split '\s+'
+    $line = "$($Hk.Name) $($p[1]) $($p[2])"
+    if ($Hk.Hash -eq 'yes') {
+        # Next to known_hosts, not in the temp dir: ssh-keygen -H writes a predictable "$tmp.old".
+        $tmp = Join-Path (Split-Path $f -Parent) ".sshdd-kh-$PID-$(Get-Random)"
+        try {
+            [System.IO.File]::WriteAllText($tmp, "$line`n")
+            $null = ssh-keygen -H -f $tmp 2>&1
+            $line = "$(Get-Content -LiteralPath $tmp -TotalCount 1)"
+        } finally { Remove-Item -LiteralPath $tmp, "$tmp.old" -ErrorAction SilentlyContinue }
+        if (-not $line.StartsWith('|1|')) {        # never write the name in clear when hashing is on
+            Write-Out 'error' "Could not hash the new key for $($Hk.Name); not recorded."
+            return $false
+        }
+    }
+    if ((Test-Path -LiteralPath $f) -and (Get-Item -LiteralPath $f).Length -gt 0) {
+        $last = [System.IO.File]::ReadAllBytes($f)[-1]
+        if ($last -ne 10) { $line = "`n$line" }     # file without a final newline
+    }
+    [System.IO.File]::AppendAllText($f, "$line`n")
+    Write-Out 'ok' "Trusted the new key for $($Hk.Name)."
+    return $true
+}
+
+function Test-HostKey {
+    # Before connecting: compare TARGET's current host key with known_hosts and offer to forget
+    # the old one when it changed. $false when it changed and the user keeps the old key.
+    param([string]$Target)
+    $hk    = Resolve-HostKeyName $Target
+    if ($hk.Proxy) { return $true }                 # via a jump host the scan reaches another machine: ssh checks it
+    $known = @(Get-KnownHostKeys $hk)
+    if (-not $known) { return $true }                   # never seen: ssh asks (or accept-new records it)
+    # One key type = one connection: OpenSSH 9.8+ penalises connections that don't log in.
+    $type = if ($known.Type -contains 'ED25519') { 'ed25519' } elseif ($known.Type -contains 'ECDSA') { 'ecdsa' } else { 'rsa' }
+    Write-Out 'dim' "Checking host key..."
+    $scan = @(ssh-keyscan -T 4 -t $type -p $hk.Port $hk.Host 2>$null | Where-Object { $_ -and $_ -notlike '#*' })
+    # Compare (and later record) only what can be shown: one key with its fingerprint. Anything
+    # else (unreachable, odd output) is left to ssh's own check.
+    if ($scan.Count -ne 1) { return $true }
+    $new = @($scan | ssh-keygen -lf - 2>$null | ForEach-Object {
+        $p = "$_".Trim() -split '\s+'; [pscustomobject]@{ Type = $p[-1].Trim('(', ')'); Fingerprint = $p[1] } })
+    if ($new.Count -ne 1 -or $new[0].Fingerprint -notlike 'SHA256:*') { return $true }
+    if ($known | Where-Object { $new.Fingerprint -contains $_.Fingerprint }) { return $true }
+    $old = $known | Where-Object { $_.Type -eq $new[0].Type } | Select-Object -First 1
+    if (-not $old) { $old = $known[0] }
+    $shown = if ($Target -ne $hk.Name) { "$($hk.Name) ($Target)" } else { $hk.Name }
+    Write-Host ""
+    Write-Out 'warn' "⚠ Host key for $shown changed."
+    Write-Out 'dim'  "  Old: $(Format-KnownHostKey $old)"
+    Write-Out 'dim'  "  New: $($new[0].Type) $($new[0].Fingerprint)"
+    Write-Out 'dim'  "  Expected after a CT is destroyed and recreated."
+    $script:_HkFailed = $false
+    $ok = Confirm-UserChoice -Message "Forget the old key and retry?" -DefaultAnswer 'n' -Action {
+        if (-not ((Remove-KnownHostKeys $hk) -and (Add-KnownHostScan $hk $scan[0]))) { $script:_HkFailed = $true }
+    }
+    return ($ok -and -not $script:_HkFailed)
+}
+
+function Write-KnownHostsList {
+    # Numbered listing from `ssh-keygen -lf FILE` output; LOOKUPS (`ssh-keygen -l -F NAME` output
+    # for the configured hosts) names hashed entries. $false when there is no valid entry.
+    param([string[]]$Listing, [string[]]$Lookups)
+    $names = @{}
+    foreach ($l in $Lookups) {
+        $p = "$l".Trim() -split '\s+'
+        if ($p.Count -ge 3 -and $p[0] -ne '#') { $names[$p[2]] = $p[0] }
+    }
+    $i = 1
+    $out = foreach ($l in $Listing) {
+        $p = "$l".Trim() -split '\s+'
+        if ($p.Count -lt 4) { continue }
+        $name = if ($p[2].StartsWith('|')) { if ($names[$p[1]]) { "$($names[$p[1]]) (hashed)" } else { '(hashed)' } } else { $p[2] }
+        "  `e[90m$($i.ToString().PadLeft(3))`e[0m  `e[36m$($name.PadRight(28))`e[0m $($p[-1].Trim('(', ')').PadRight(8)) `e[90m$($p[1])`e[0m"
+        $i++
+    }
+    if ($out) { Show-Paged -Lines @($out) }
+    return [bool]$out
+}
+
+function Get-ConfigHostKeyNames {
+    # The known_hosts names of the configured hosts (to name hashed entries).
+    return @(Get-ConfiguredSSHHosts | ForEach-Object { (Resolve-HostKeyName $_.Alias).Name } | Sort-Object -Unique)
 }
 
 

@@ -75,7 +75,8 @@ def isolated_home(tmp_path_factory, monkeypatch):
         w = bin_dir / tool
         w.write_text(
             "#!/bin/sh\n"
-            'case " $* " in *" -F "*) exec ' + real + ' "$@" ;; esac\n'
+            # -F as its own argument: a remote command may contain the text "-F" (ssh-keygen -F).
+            'for a; do [ "$a" = -F ] && exec ' + real + ' "$@"; done\n'
             "exec " + real + ' -F "$HOME/.ssh/config" -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$@"\n')
         w.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")

@@ -6,9 +6,11 @@ _SSH_HELPERS_SH_LOADED=1
 #          _tcp_check  _spin_start  _spin_stop
 #          _ssh_fence  _ssh_fence_close
 #          _setup_askpass  _destroy_askpass  _ensure_ssh_dir
-#          _write_key_pair  _print_identity_files  _prompt_remote
+#          _write_key_pair  _print_identity_files  _prompt_host  _prompt_remote
+#          _hk_resolve  _hk_known  _hk_show  _hk_forget  _hk_replace  _hostkey_check  _hk_print_list
 
 _SPIN_PID=''
+_TILDE='~'   # ${f/#$HOME/~} expands the ~ on bash 5 but not on 3.2
 
 # ─── Output helpers ───────────────────────────────────────────────────────────
 
@@ -200,7 +202,8 @@ _with_timeout() {
     shift
     "$@" &
     pid=$!
-    ( sleep "$secs"; kill -9 "$pid" 2>/dev/null ) &
+    # The watcher's sleep must not hold stdout: in a pipe or $(...) the reader would wait for it.
+    ( sleep "$secs"; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 &
     watcher=$!
     wait "$pid"; rc=$?
     kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
@@ -399,10 +402,9 @@ _print_identity_files() {
     done < <(get_identity_files_for_host "$id_lookup")
 }
 
-# Prompt for a remote host and user in one call.
-# Sets globals: _REMOTE_HOST  _REMOTE_USER  _REMOTE_ALIAS
-# Returns 1 if the user cancels either prompt.
-_prompt_remote() {
+# Prompt for a remote host (config host or typed address).
+# Sets globals: _REMOTE_HOST  _REMOTE_ALIAS. Returns 1 if the user cancels.
+_prompt_host() {
     # Redirect stdout to a temp file instead of using $() so that
     # _LAST_SELECTED_ALIAS (set inside read_remote_host_address when the user
     # picks an existing alias) is not lost in a subshell. Without this, two hosts
@@ -413,5 +415,174 @@ _prompt_remote() {
     _REMOTE_HOST=$(<"$_rha_out")
     rm -f "$_rha_out"
     _REMOTE_ALIAS="${_LAST_SELECTED_ALIAS:-$(get_alias_for_host_ip "$_REMOTE_HOST")}"
+}
+
+# Prompt for a remote host and user in one call; checks the host key in between.
+# Sets globals: _REMOTE_HOST  _REMOTE_USER  _REMOTE_ALIAS
+# Returns 1 if the user cancels a prompt or keeps a changed host key.
+_prompt_remote() {
+    _prompt_host || return 1
+    _hostkey_check "${_REMOTE_ALIAS:-$_REMOTE_HOST}" || return 1
     _REMOTE_USER=$(read_remote_user "$DEFAULT_USER") || return 1
+}
+
+# ─── known_hosts (TODO #15) ───────────────────────────────────────────────────
+# A destroyed and recreated CT comes back with new host keys, and ssh then refuses it with
+# "REMOTE HOST IDENTIFICATION HAS CHANGED". ssh-keygen does the lookups (hashed entries too).
+
+# Sets _HK_NAME (the known_hosts name: HostKeyAlias or HostName, "[name]:port" off port 22),
+# _HK_HOST, _HK_PORT, _HK_FILES (UserKnownHostsFile), _HK_HASH (HashKnownHosts) and _HK_PROXY
+# (ProxyJump/ProxyCommand, empty when direct) for TARGET, as ssh itself resolves them.
+_hk_resolve() {
+    local k v name=''
+    _HK_HOST=$1 _HK_PORT=22 _HK_FILES=() _HK_HASH=no _HK_PROXY=
+    while read -r k v; do
+        case $k in
+            hostname)           _HK_HOST=$v ;;
+            port)               _HK_PORT=$v ;;
+            hostkeyalias)       name=$v ;;
+            userknownhostsfile) read -ra _HK_FILES <<< "$v" ;;
+            hashknownhosts)     _HK_HASH=$v ;;
+            proxyjump|proxycommand) [[ $v != none ]] && _HK_PROXY=$v ;;
+        esac
+    done < <(ssh -G "$1" 2>/dev/null)
+    name=${name:-$_HK_HOST}
+    if [[ $_HK_PORT == 22 ]]; then _HK_NAME=$name; else _HK_NAME="[$name]:$_HK_PORT"; fi
+}
+
+# Known keys for _HK_NAME: one "TYPE FINGERPRINT FILE line N" per entry. @cert-authority and
+# @revoked lines ("found: line 3 CA" / "REVOKED") aren't host keys and ssh-keygen -R keeps them.
+_hk_known() {
+    local f
+    for f in "${_HK_FILES[@]}"; do
+        [[ -r $f ]] || continue
+        ssh-keygen -l -F "$_HK_NAME" -f "$f" 2>/dev/null |
+            awk -v f="$f" '/^# Host .* found: line /{n=($NF ~ /^[0-9]+$/) ? $NF : ""; next} n!=""{print $(NF-1), $NF, f, "line", n; n=""}'
+    done
+}
+
+# The host's current key of TYPE (ed25519, ecdsa, rsa) as ssh-keyscan prints it ("host type key"),
+# nothing when unreachable. One type = one connection: OpenSSH 9.8+ penalises each connection that
+# doesn't log in (PerSourcePenalties noauth), and enough penalty blocks this machine for a while.
+_hk_scan() {
+    _with_timeout 6 ssh-keyscan -T 4 -t "$1" -p "$_HK_PORT" "$_HK_HOST" 2>/dev/null
+}
+
+# Record the keys _hostkey_check scanned (and showed) under _HK_NAME, so the operation's ssh
+# doesn't ask "Are you sure you want to continue connecting?" right after the user said yes.
+_hk_trust_scan() {
+    local f=${_HK_FILES[0]:-} t k line tmp
+    [[ -n $f && -n $_HK_SCAN ]] || return 0
+    read -r _ t k <<< "$_HK_SCAN"              # exactly one line: _hostkey_check made sure
+    line="$_HK_NAME $t $k"
+    if [[ $_HK_HASH == yes ]]; then
+        # Next to known_hosts, not in /tmp: ssh-keygen -H writes a predictable "$tmp.old".
+        tmp="${f%/*}/.sshdd-kh-$$-$RANDOM$RANDOM"
+        _cleanup_add "$tmp" "$tmp.old"
+        ( umask 077; set -C; printf '%s\n' "$line" > "$tmp" ) 2>/dev/null &&
+            ssh-keygen -H -f "$tmp" >/dev/null 2>&1 && line=$(<"$tmp")
+        rm -f "$tmp" "$tmp.old"
+        if [[ $line != '|1|'* ]]; then         # never write the name in clear when hashing is on
+            _out error 'Could not hash the new key for %s; not recorded.' "$_HK_NAME"
+            return 1
+        fi
+    fi
+    [[ -s $f && -n $(tail -c1 "$f") ]] && line=$'\n'$line     # file without a final newline
+    printf '%s\n' "$line" >> "$f" && _out ok 'Trusted the new key for %s.' "$_HK_NAME"
+}
+
+_hk_replace() { _hk_forget && _hk_trust_scan || _HK_FAILED=1; }
+
+# Print "TYPE FINGERPRINT (FILE line N)" lines from _hk_known output.
+_hk_show() {
+    local t fp f _l n
+    while read -r t fp f _l n; do
+        [[ -n $t ]] && _out dim '%-8s %s  (%s line %s)' "$t" "$fp" "${f/#$HOME/$_TILDE}" "$n"
+    done <<< "$1"
+}
+
+# Remove every _HK_NAME entry from _HK_FILES; ssh-keygen keeps the old file as FILE.old.
+_hk_forget() {
+    local f n
+    for f in "${_HK_FILES[@]}"; do
+        [[ -r $f ]] || continue
+        n=$(ssh-keygen -F "$_HK_NAME" -f "$f" 2>/dev/null | grep -c '^# Host .* found: line [0-9]* *$')
+        (( n )) || continue
+        if ssh-keygen -R "$_HK_NAME" -f "$f" >/dev/null 2>&1; then
+            _out ok 'Removed %s key(s) for %s from %s (backup: %s.old).' "$n" "$_HK_NAME" "${f/#$HOME/$_TILDE}" "${f/#$HOME/$_TILDE}"
+        else
+            _out error 'Could not edit %s.' "$f"
+            return 1
+        fi
+    done
+}
+
+# Before connecting: compare TARGET's current host keys with known_hosts, and offer to forget
+# the old ones when none match. Returns 1 when the key changed and the user keeps the old one.
+_hostkey_check() {
+    local known scanned t fp f _l n old='' new
+    _hk_resolve "$1"
+    # Through a jump host the scan would reach a different machine (or nothing): ssh checks it.
+    [[ -n $_HK_PROXY ]] && return 0
+    known=$(_hk_known)
+    [[ -z $known ]] && return 0                 # never seen: ssh asks (or accept-new records it)
+    # The type ssh would pick: it prefers algorithms already known for the host.
+    local type=rsa
+    case $'\n'$known in
+        *$'\n'ED25519\ *) type=ed25519 ;;
+        *$'\n'ECDSA\ *)   type=ecdsa ;;
+    esac
+    _spin_start "Checking host key..."
+    _HK_SCAN=$(_hk_scan "$type")
+    _spin_stop
+    # Compare (and later record) only what can be shown: one key with its fingerprint. Anything
+    # else (unreachable, odd output) is left to ssh's own check.
+    [[ -n $_HK_SCAN && $_HK_SCAN != *$'\n'* ]] || return 0
+    scanned=$(ssh-keygen -lf - <<< "$_HK_SCAN" 2>/dev/null | awk '{t=$NF; gsub(/[()]/, "", t); print t, $2}')
+    [[ $scanned == *' SHA256:'* && $scanned != *$'\n'* ]] || return 0
+    new=$scanned
+    while read -r t fp f _l n; do
+        [[ $scanned == *" $fp" ]] && return 0
+        [[ -z $old && $scanned == "$t "* ]] && old="$t $fp  (${f/#$HOME/$_TILDE} line $n)"
+    done <<< "$known"
+    if [[ -z $old ]]; then
+        read -r t fp f _l n <<< "$known"; old="$t $fp  (${f/#$HOME/$_TILDE} line $n)"
+    fi
+    local shown=$_HK_NAME
+    [[ $1 != "$_HK_NAME" ]] && shown="$_HK_NAME ($1)"
+    printf '\n'
+    _out warn '⚠ Host key for %s changed.' "$shown"
+    _out dim '  Old: %s' "$old"
+    _out dim '  New: %s' "$new"
+    _out dim '  Expected after a CT is destroyed and recreated.'
+    _HK_FAILED=0
+    confirm_user_choice "Forget the old key and retry?" n _hk_replace || return 1
+    (( ! _HK_FAILED ))
+}
+
+# Print a numbered known_hosts listing. LISTING is `ssh-keygen -lf FILE` output; LOOKUPS is
+# `ssh-keygen -l -F NAME` output for names we know (config hosts), used to name hashed entries.
+_hk_print_list() {
+    local listing=$1 lookups=$2 fp host type i=1 name
+    local -a lk_fp=() lk_name=()
+    while read -r host type fp; do
+        [[ $host == '#' || -z $fp ]] && continue
+        lk_fp+=("$fp"); lk_name+=("$host")
+    done <<< "$lookups"
+    while read -r _ fp host type; do
+        [[ -z $fp ]] && continue
+        if [[ $host == '|'* ]]; then
+            name='(hashed)'
+            local j
+            for (( j=0; j<${#lk_fp[@]}; j++ )); do
+                [[ ${lk_fp[$j]} == "$fp" ]] && { name="${lk_name[$j]} (hashed)"; break; }
+            done
+        else
+            name=$host
+        fi
+        type=${type#(}; type=${type%)}
+        printf '  \e[90m%3d\e[0m  \e[36m%-28s\e[0m %-8s \e[90m%s\e[0m\n' "$i" "$name" "$type" "$fp"
+        (( i++ ))
+    done <<< "$listing"
+    (( i > 1 ))
 }

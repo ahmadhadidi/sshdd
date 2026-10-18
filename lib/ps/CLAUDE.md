@@ -53,6 +53,7 @@ When modifying a PS module, these are the other files that call its functions:
 - `Show-OpBanner`:45 `Pairs [StartRow]` — stream mode (default, `StartRow -lt 0`): prints to Console. Buffer mode (`StartRow >= 0`): writes positioned ANSI into `$script:_OpBannerBuf` for the caller to include in a frame. Always sets `$script:_OpBannerRows`. Unlike bash, no `_SFL_BANNER_ROWS` offset needed — PS `Select-FromList` uses `CursorTop + 3` for dynamic positioning.
 - `Write-SSHFence`:137 / `Write-SSHFenceClose`:157 — decorative dim rule around SSH session output; purely visual, no functional effect
 - `Invoke-RemotePrompt`:174 — calls `Read-RemoteHostAddress` then `Read-RemoteUser`; sets `$script:_RemoteHost`, `$script:_RemoteUser`, `$script:_RemoteAlias`. `_LastSelectedAlias` is set inside `Read-RemoteHostAddress` directly (no subshell-loss risk unlike bash). Always use this rather than calling the readers separately if you need the alias.
+- known_hosts (TODO #15), same rules as bash `_hk_*`: `Resolve-HostKeyName` (`ssh -G`), `Get-KnownHostKeys`, `Remove-KnownHostKeys`, `Add-KnownHostScan`, `Test-HostKey` (called by `Invoke-RemotePrompt`; keeping a changed key throws `OperationCanceledException`), `Write-KnownHostsList`, `Get-ConfigHostKeyNames`
 - `Write-IdentityFiles`:188 — prints `IdentityFile` entries for a host (informational dim output)
 - `Test-SSHKeyName` — the one rule for key names; checked in `Add-SSHKeyInHost` and `Write-KeyPair` (which also requires the destination to be inside `~/.ssh`)
 - `Ensure-SSHDir`:199 — `New-Item -ItemType Directory` if `.ssh` absent
@@ -134,6 +135,7 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 - `_MenuListAuthorizedKeys`:395 — SSHes to target, fetches `authorized_keys`, displays numbered list
 - `_MenuAddConfigBlock`:422 — delegates to `Register-RemoteHostConfig` (reads remote auth_keys, creates host config entry)
 - `_MenuImportKey`:427 — delegates to `Import-ExternalSSHKey` (local path / SCP / paste)
+- `_MenuListKnownHosts` (19, K) / `_MenuForgetHostKey` (20, F) / `_MenuListRemoteKnownHosts` (21, O) / `_MenuForgetRemoteHostKey` (22, B) — remote names go on stdin (`$script:RemoteKh*`, CR stripped remotely)
 
 ### menu-renderer.ps1
 

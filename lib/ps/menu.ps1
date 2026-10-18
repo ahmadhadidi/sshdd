@@ -31,6 +31,10 @@ function Invoke-MenuChoice {
         "16" { return _MenuListAuthorizedKeys }
         "17" { return _MenuAddConfigBlock }
         "18" { return _MenuImportKey }
+        "19" { return _MenuListKnownHosts }
+        "20" { return _MenuForgetHostKey }
+        "21" { return _MenuListRemoteKnownHosts }
+        "22" { return _MenuForgetRemoteHostKey }
     }
 }
 
@@ -426,6 +430,92 @@ function _MenuListAuthorizedKeys {   # choice 16 — SSH to target, fetch author
         Write-SSHFenceClose
         Write-Out 'error' "Failed to fetch authorized_keys: $($_.Exception.Message)"
     }
+}
+
+# ── known_hosts (TODO #15) ────────────────────────────────────────────────────
+# Remote side: the SSH user's ~/.ssh/known_hosts. Host names come on stdin, never in the command;
+# CR is stripped because PS 5.1 pipes text with CRLF.
+$script:RemoteKhLookup = 'f=$HOME/.ssh/known_hosts; [ -s "$f" ] || exit 0; command -v ssh-keygen >/dev/null || { echo "ssh-keygen not found on the remote host" >&2; exit 3; }; tr -d ''\r'' | while read -r n; do ssh-keygen -l -F "$n" -f "$f"; done; true'
+$script:RemoteKhList   = 'f=$HOME/.ssh/known_hosts; [ -s "$f" ] || exit 0; command -v ssh-keygen >/dev/null || { echo "ssh-keygen not found on the remote host" >&2; exit 3; }; ssh-keygen -lf "$f"; echo --; tr -d ''\r'' | while read -r n; do ssh-keygen -l -F "$n" -f "$f"; done; true'
+# "done" only when no plain entry for any name is left (ssh-keygen -R keeps @cert-authority/@revoked lines).
+$script:RemoteKhForget = 'f=$HOME/.ssh/known_hosts; tr -d ''\r'' | { rc=0; while read -r n; do ssh-keygen -R "$n" -f "$f" >/dev/null 2>&1; ssh-keygen -F "$n" -f "$f" 2>/dev/null | grep -q "found: line [0-9]* *$" && rc=1; done; [ $rc = 0 ] && echo done; }'
+
+function _MenuListKnownHosts {       # choice 19 — local ~/.ssh/known_hosts with fingerprints
+    $f = Join-Path $env:USERPROFILE ".ssh/known_hosts"
+    Show-OpBanner @("file", $f)
+    if (-not (Test-Path -LiteralPath $f) -or (Get-Item -LiteralPath $f).Length -eq 0) {
+        Write-Out 'dim' "No known hosts in $f."
+        return
+    }
+    $lookups = @(Get-ConfigHostKeyNames | ForEach-Object { ssh-keygen -l -F $_ -f $f 2>$null })
+    Write-Host "  `e[1;37mKnown hosts in ${f}:`e[0m"
+    if (-not (Write-KnownHostsList -Listing @(ssh-keygen -lf $f 2>$null) -Lookups $lookups)) { Write-Out 'dim' "No valid entries." }
+}
+
+function _MenuForgetHostKey {        # choice 20 — remove a host's keys from local known_hosts
+    Show-OpBanner @("file", (Join-Path $env:USERPROFILE ".ssh/known_hosts"))
+    $h = Read-RemoteHostAddress -SubnetPrefix $DefaultSubnetPrefix
+    $target = if ($script:_LastSelectedAlias) { $script:_LastSelectedAlias } else { $h }
+    $hk = Resolve-HostKeyName $target
+    $known = @(Get-KnownHostKeys $hk)
+    if (-not $known) { Write-Out 'dim' "No known host keys for $($hk.Name)."; return }
+    Write-Out 'plain' "Known keys for $($hk.Name):"
+    $known | ForEach-Object { Write-Out 'dim' (Format-KnownHostKey $_) }
+    $null = Confirm-UserChoice -Message "Forget these keys?" -DefaultAnswer 'n' -Action { $null = Remove-KnownHostKeys $hk }
+}
+
+function _MenuListRemoteKnownHosts { # choice 21 — the remote user's ~/.ssh/known_hosts
+    Show-OpBanner @("host", $env:COMPUTERNAME, "user", $DefaultUserName)
+    Invoke-RemotePrompt
+    $target = Resolve-SSHTarget -RemoteHostAddress $script:_RemoteHost -RemoteUser $script:_RemoteUser
+    Write-Out 'dim' "Fetching known_hosts from $target..."
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    Write-SSHFence $target
+    $out = @(Get-ConfigHostKeyNames | ssh $target (ConvertTo-NativeArgument $script:RemoteKhList) 2>&1)
+    $rc = $LASTEXITCODE
+    Write-SSHFenceClose
+    if ($rc -ne 0) { Write-Out 'error' "Failed to fetch known_hosts."; Write-Out 'dim' "ssh: $($out | Select-Object -Last 1)"; return }
+    if (-not $out) { Write-Out 'dim' "No known_hosts on $target."; return }
+    $sep = [array]::IndexOf([string[]]$out, '--')
+    $listing = if ($sep -ge 0) { $out[0..($sep - 1)] } else { $out }
+    $lookups = if ($sep -ge 0 -and $sep -lt $out.Count - 1) { $out[($sep + 1)..($out.Count - 1)] } else { @() }
+    Write-Host "  `e[1;37mKnown hosts on ${target}:`e[0m"
+    if (-not (Write-KnownHostsList -Listing $listing -Lookups $lookups)) { Write-Out 'dim' "No valid entries." }
+}
+
+function _MenuForgetRemoteHostKey {  # choice 22 — remove a host's keys from the remote user's known_hosts
+    Show-OpBanner @("host", $env:COMPUTERNAME, "user", $DefaultUserName)
+    Invoke-RemotePrompt
+    $target = Resolve-SSHTarget -RemoteHostAddress $script:_RemoteHost -RemoteUser $script:_RemoteUser
+    Write-Out 'plain' "Host to forget on ${target}:"
+    $h = Read-RemoteHostAddress -SubnetPrefix $DefaultSubnetPrefix
+    $alias = $script:_LastSelectedAlias
+    $hk = Resolve-HostKeyName $(if ($alias) { $alias } else { $h })
+    $names = @($hk.Name)
+    if ($alias -and $alias -ne $hk.Name) { $names += $alias }
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    Write-SSHFence $target
+    $out = @($names | ssh $target (ConvertTo-NativeArgument $script:RemoteKhLookup) 2>&1)
+    $rc = $LASTEXITCODE
+    Write-SSHFenceClose
+    if ($rc -ne 0) { Write-Out 'error' "Failed to read known_hosts on $target."; Write-Out 'dim' "ssh: $($out | Select-Object -Last 1)"; return }
+    $plain = $false   # entry after "# Host x found: line N" (not "... line N CA" / "REVOKED")
+    $found = @(foreach ($l in $out) {
+        if ("$l" -like '# Host *') { $plain = "$l" -match 'found: line \d+\s*$'; continue }
+        $q = "$l".Trim() -split '\s+'
+        if ($plain -and $q.Count -ge 3) { $l }
+    })
+    $shown = $names -join ', '
+    if (-not $found) { Write-Out 'dim' "No known host keys for $shown on $target."; return }
+    Write-Out 'plain' "Known keys for $shown on ${target}:"
+    foreach ($l in $found) { $q = "$l".Trim() -split '\s+'; Write-Out 'dim' "$($q[1].PadRight(8)) $($q[2])  ($($q[0]))" }
+    $resp = Read-ColoredInput -Prompt "Forget these keys on $target? [y/N]" -ForegroundColor "Cyan"
+    if ($resp -notmatch '^(y|yes)$') { Write-Host "  Action cancelled." -ForegroundColor Yellow; return }
+    Write-SSHFence $target
+    $out = @($names | ssh $target (ConvertTo-NativeArgument $script:RemoteKhForget) 2>&1)
+    Write-SSHFenceClose
+    if ($out -contains 'done') { Write-Out 'ok' "Removed $($found.Count) key(s) from ${target}:~/.ssh/known_hosts (backup: known_hosts.old)." }
+    else { Write-Out 'error' "Failed to edit known_hosts on $target."; Write-Out 'dim' "ssh: $($out | Select-Object -Last 1)" }
 }
 
 function _MenuAddConfigBlock {       # choice 17 — read remote auth_keys, create host config entry
