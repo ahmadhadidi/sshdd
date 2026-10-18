@@ -318,7 +318,10 @@ _write_key_pair() {
         cp "$pub_data"  "$dest_pub"  && chmod 644 "$dest_pub"
     else
         printf '%s' "$priv_data" > "$dest_priv" && chmod 600 "$dest_priv"
-        printf '%s\n' "${pub_data%$'\n'}" > "$dest_pub" && chmod 644 "$dest_pub"
+        # Strip every trailing newline (a pasted key often has several), then add exactly one.
+        local _nl=$'\n'
+        pub_data="${pub_data%"${pub_data##*[!$_nl]}"}"
+        printf '%s\n' "$pub_data" > "$dest_pub" && chmod 644 "$dest_pub"
     fi
     _out_item '%s  imported.' "$dest_priv"
     _out_item '%s  imported.' "$dest_pub"

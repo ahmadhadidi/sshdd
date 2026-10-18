@@ -19,8 +19,8 @@ get_configured_ssh_hosts() {
             if (alias != "" && alias != "*") print alias "|" hn "|" user
             alias=a[2]; hn=""; user=""
         }
-        k == "hostname" { hn=a[2] }
-        k == "user"     { user=a[2] }
+        k == "hostname" && hn == ""   { hn=a[2] }     # OpenSSH: the first value wins
+        k == "user"     && user == "" { user=a[2] }
         END { if (alias != "" && alias != "*") print alias "|" hn "|" user }
     ' "$SSH_CONFIG"
 }
@@ -51,9 +51,11 @@ _get_host_block() {
     local alias="$1"
     _HOST_BLOCK=""
     [[ -f "$SSH_CONFIG" ]] || return 0
-    local esc; esc=$(_regex_escape "$alias")
-    _HOST_BLOCK=$(perl -0777 -ne \
-        "/(^Host[ \t]+${esc}\\b.*?)(?=^Host[ \t]|\\z)/ms and print \$1" \
+    # Keyword case-insensitive, any indent, "Host a" or "Host=a" (ssh_config syntax); the alias must
+    # end at whitespace or end of line (\b let "a" match "Host a-b"). Found by plan H1/H2.
+    _HOST_BLOCK=$(_SSHDD_ALIAS="$alias" perl -0777 -ne \
+        'my $a = quotemeta $ENV{_SSHDD_ALIAS};
+         /(^[ \t]*(?i:host)[ \t]*[ \t=][ \t]*$a(?=[ \t]|$).*?)(?=^[ \t]*(?i:host)[ \t]*[ \t=]|\z)/ms and print $1' \
         "$SSH_CONFIG" 2>/dev/null || true)
 }
 
@@ -90,7 +92,7 @@ get_hosts_using_key() {
     while IFS='|' read -r alias hn user; do
         _get_host_block "$alias"
         if printf '%s\n' "$_HOST_BLOCK" | \
-               grep -qE "IdentityFile\s+.*[/\\\\]?${esc}[[:space:]]*$"; then
+               grep -qiE "^[[:space:]]*IdentityFile([[:space:]]*=[[:space:]]*|[[:space:]]+)\"?(.*[/\\\\])?${esc}\"?[[:space:]]*$"; then
             printf '%s|%s|%s\n' "$alias" "$hn" "$user"
         fi
     done < <(get_configured_ssh_hosts)
@@ -144,20 +146,26 @@ get_identity_file_from_host_config() {
     printf '%s' "$raw"
 }
 
-# Replace old_block with new_block in SSH_CONFIG.
-# Pass new_block="" to delete the block entirely.
-# Uses perl (preferred) with python3 fallback.
+# Replace old_block with new_block in SSH_CONFIG (first occurrence).
+# Pass new_block="" to delete the block entirely (with its trailing newline).
+# Blocks go in through the environment, never into the perl/python source: pasted in, any "/"
+# (every IdentityFile path) ended perl's s/// and a backslash broke python, so the edit was
+# silently lost (plan U2). perl preferred, python3 fallback; returns 1 if neither could do it.
 _replace_host_block() {
     local old_block="$1" new_block="${2:-}"
     if command -v perl &>/dev/null; then
-        perl -0777 -i -pe "s/\Q${old_block}\E/${new_block}/" "$SSH_CONFIG" 2>/dev/null && return 0
+        _SSHDD_OLD="$old_block" _SSHDD_NEW="$new_block" perl -0777 -i -pe \
+            'BEGIN { $o = $ENV{_SSHDD_OLD}; $n = $ENV{_SSHDD_NEW} } $n eq "" ? s/\Q$o\E\n?// : s/\Q$o\E/$n/' \
+            "$SSH_CONFIG" 2>/dev/null && return 0
     fi
     if command -v python3 &>/dev/null; then
-        python3 -c "
-f='$SSH_CONFIG'
-content=open(f).read()
-open(f,'w').write(content.replace('''${old_block}''', '''${new_block}''', 1))
-" 2>/dev/null && return 0
+        _SSHDD_OLD="$old_block" _SSHDD_NEW="$new_block" python3 -c '
+import os, sys
+f = sys.argv[1]; s = open(f).read(); o = os.environ["_SSHDD_OLD"]; n = os.environ["_SSHDD_NEW"]
+if not n and o + "\n" in s:
+    o += "\n"          # deleting: take the trailing newline of the block too
+open(f, "w").write(s.replace(o, n, 1))
+' "$SSH_CONFIG" 2>/dev/null && return 0
     fi
     return 1
 }

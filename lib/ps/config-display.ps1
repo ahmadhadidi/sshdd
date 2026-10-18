@@ -29,7 +29,7 @@ function Remove-HostFromSSHConfig {
     }
 
     $config  = Get-Content $configPath -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$([regex]::Escape($hostName))\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $hostName)
     $match   = [regex]::Match($config, $pattern)
 
     if (-not $match.Success) {

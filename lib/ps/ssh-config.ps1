@@ -6,6 +6,17 @@
 #          Get-IPAddressFromHostConfigEntry  Get-AliasForHostIP
 #          Get-RemoteUserFromConfigEntry
 
+# Regex for one Host block, same rules as bash _get_host_block (plan H1/H2): keyword any case,
+# any indent, "Host a" or "Host=a"; the alias must end at whitespace/end of line ("a" must not
+# match "Host a-b"); the alias is escaped. No -Alias: any alias, captured as group 1.
+function Get-HostBlockPattern {
+    param([string]$Alias)
+    $kw   = '^[ \t]*(?i:host)[ \t]*[ \t=][ \t]*'
+    $name = if ($Alias) { [regex]::Escape($Alias) } else { '(\S+)' }
+    return "(?ms)$kw$name(?=[ \t]|$).*?(?=$kw|\z)"
+}
+
+
 function Get-AvailableSSHKeys {
     $sshDir  = "$env:USERPROFILE\.ssh"
     if (-not (Test-Path $sshDir)) { return @() }
@@ -24,8 +35,7 @@ function Get-HostsUsingKey {
     $config  = Get-Content $configPath -Raw -Encoding UTF8
     $escaped = [regex]::Escape($KeyName)
     return @(Get-ConfiguredSSHHosts | Where-Object {
-        $hostEsc = [regex]::Escape($_.Alias)
-        $block   = [regex]::Match($config, "(?ms)^Host\s+$hostEsc\b.*?(?=^Host\s|\z)").Value
+        $block   = [regex]::Match($config, (Get-HostBlockPattern $_.Alias)).Value
         $block -match "(?m)^\s*IdentityFile\s+.*[\\/]$escaped\s*$"
     })
 }
@@ -36,7 +46,7 @@ function Get-ConfiguredSSHHosts {
     if (-not (Test-Path $configPath)) { return @() }
     $config  = Get-Content $configPath -Raw -Encoding UTF8
     $hosts   = @()
-    $pattern = "(?ms)^Host\s+(\S+).*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern)
     foreach ($hb in [regex]::Matches($config, $pattern)) {
         $alias = $hb.Groups[1].Value.Trim()
         if ($alias -eq "*") { continue }
@@ -55,10 +65,9 @@ function Get-IdentityFilesForHost {
     $cfgPath = "$env:USERPROFILE\.ssh\config"
     if (-not $AliasOrAddress -or -not (Test-Path $cfgPath)) { return @() }
     $cfgRaw = Get-Content $cfgPath -Raw -Encoding UTF8
-    $aliasE = [regex]::Escape($AliasOrAddress)
-    $block  = [regex]::Match($cfgRaw, "(?ms)^Host\s+$aliasE\b.*?(?=^Host\s|\z)").Value
+    $block  = [regex]::Match($cfgRaw, (Get-HostBlockPattern $AliasOrAddress)).Value
     if (-not $block) {
-        foreach ($hb in [regex]::Matches($cfgRaw, "(?ms)^Host\s+(\S+).*?(?=^Host\s|\z)")) {
+        foreach ($hb in [regex]::Matches($cfgRaw, (Get-HostBlockPattern))) {
             if ($hb.Value -match "(?m)^\s*HostName(?:\s*=\s*|\s+)$([regex]::Escape($AliasOrAddress))\s*$") {
                 $block = $hb.Value; break
             }
@@ -75,7 +84,7 @@ function Get-IdentityFileFromHostConfigEntry {
     $sshConfig = Find-ConfigFileOnHost
     if (-not $sshConfig) { return $null }
     $config = Get-Content -Path $sshConfig -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $RemoteHostName)
     $match = [regex]::Match($config, $pattern)
     if (-not $match.Success) { return $null }
     if ($match.Value -match '(?m)^\s*IdentityFile\s+(.+)$') {
@@ -103,7 +112,7 @@ function Find-SSHKeyInHostConfig {
     )
     $sshConfig = Find-ConfigFileOnHost
     $config = Get-Content -Path $sshConfig -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $RemoteHostName)
     $match = [regex]::Match($config, $pattern)
     if (-not $match.Success) {
         if ($ReturnResult) { return $false }
@@ -153,7 +162,7 @@ function Get-IPAddressFromHostConfigEntry {
     param ([Parameter(Mandatory = $true)][string]$RemoteHostName)
     $sshConfig = Find-ConfigFileOnHost
     $config = Get-Content -Path $sshConfig -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $RemoteHostName)
     $match = [regex]::Match($config, $pattern)
     if (-not $match.Success) {
         Write-Host "  No Host block found for '$RemoteHostName'" -ForegroundColor Yellow
@@ -181,7 +190,7 @@ function Get-RemoteUserFromConfigEntry {
     param ([Parameter(Mandatory = $true)][string]$RemoteHostName)
     $sshConfig = Find-ConfigFileOnHost
     $config = Get-Content -Path $sshConfig -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $RemoteHostName)
     $match = [regex]::Match($config, $pattern)
     if (-not $match.Success) {
         Write-Host "  No Host block found for '$RemoteHostName'" -ForegroundColor Yellow

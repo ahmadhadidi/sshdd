@@ -49,17 +49,17 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### U — unit (bash and PowerShell)
 - **U1** ✅ config getters: case, tabs, `Key=value` (bash + PS).
-- **U2** 🔨 `_replace_host_block` with `$`, `@`, `\`, `/`, quotes and regex characters in the block: other blocks untouched byte-for-byte.
-- **U3** 🔨 `_sq`: round-trips any string through `bash -c`.
-- **U4** 🔨 `_visual_width` for ASCII, wide emoji, emoji + VS16, CJK.
-- **U5** 🔨 `_hint_bar` never exceeds width (1…300) and keeps the last pair.
+- **U2** ✅ `_replace_host_block` with `$ @ \ / ' " `…`` in the block, perl and python3 paths; delete keeps other blocks byte-for-byte — `test_units.py`.
+- **U3** ✅ `_sq` round-trips random text through `eval` (hypothesis).
+- **U4** ✅ `_visual_width` for ASCII, wide emoji, emoji + VS16, wide symbols.
+- **U5** ✅ `_hint_bar` exactly fills widths 1–300, keeps `Q Quit` (hypothesis).
 - **U6** ✅ host selection: typed alias, unique filter, digits shorthand, unknown text (bash + PS).
-- **U7** 🔨 `get_hosts_using_key`, `get_identity_files_for_host` with `~`, `$HOME`, quotes, spaces.
-- **U8** 🔨 `_write_key_pair`: modes 600/644, exactly one trailing newline.
+- **U7** ✅ `get_hosts_using_key`, `get_identity_files_for_host` with `~`, `$HOME`, quotes, spaces, `=`, look-alike names.
+- **U8** ✅ `_write_key_pair`: mode 600, exactly one trailing newline.
 
 ### H — property tests
-- **H1** 🔨 random valid ssh_config files: `get_configured_ssh_hosts` matches `ssh -G <alias> -F file` (hostname, user) for every alias.
-- **H2** 🔨 random add/remove of IdentityFile and Host blocks: unrelated lines unchanged, file still parses with `ssh -G`.
+- **H1** ✅ random valid configs: bash and PS host lists match `ssh -G` — `test_properties.py`.
+- **H2** ✅ random Host-block replacement: other blocks resolve unchanged with `ssh -G`.
 - **H3** 🔨 random text into every free-text prompt: no crash, no shell evaluation, screen stays inside its box.
 
 ### S — screens (pyte)
@@ -141,3 +141,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - PS `Add-SSHKeyInHost` ran ssh-keygen through `Invoke-Expression`: a comment with `$(…)` executed, passphrases with `$`/`"` were altered. Fixed (args + `ConvertTo-NativeArgument`).
 - PS turned the passphrase back into text with `PtrToStringAuto`, which on macOS/Linux pwsh returns only its first character. Fixed (NetworkCredential).
 - Remote key removal (bash + PS) pasted the key inside '…' in the remote command: a comment with `'` ran on the remote (proven on CT 213), and `mv` from a temp file reset authorized_keys to the temp file's mode (600→644 on CT 213; 664 under umask 002 locks every key out). Fixed: key on stdin, file rewritten in place. PS also reported success when ssh failed.
+- `_replace_host_block`: perl got the blocks pasted into its code, so every block with `/` (any IdentityFile path) failed and the python fallback did the work; python then failed on backslashes (Windows paths) and the edit was silently lost; two callers ignored the failure, one appended a duplicate Host block. Fixed (blocks via environment, callers report failure).
+- Deleting a host left its trailing newline, and the removal screen then rewrote the whole config with `sed` (trailing spaces stripped, blank lines squeezed in every block). Fixed: the block goes with its newline; no whole-file rewrite.
+- Parsers vs OpenSSH (H1): a repeated HostName/User showed the last value (OpenSSH uses the first); lowercase `host` lines weren't found by `_get_host_block`; alias `a` matched `Host a-b`; `get_hosts_using_key k2` matched `xk2`. PS: the alias was pasted into the regex unescaped. Fixed in bash and PS (`Get-HostBlockPattern`).
+- `_write_key_pair` stripped only one trailing newline from a pasted key.

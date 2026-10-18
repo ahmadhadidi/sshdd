@@ -327,8 +327,11 @@ add_ssh_key_to_host_config() {
                 }
             }
         ')
-        _replace_host_block "$_HOST_BLOCK" "$new_block" || \
-            printf '%s\n' "$new_block" >> "$SSH_CONFIG"
+        # Appending new_block on failure would leave two Host blocks for one host.
+        _replace_host_block "$_HOST_BLOCK" "$new_block" || {
+            _out error 'Could not edit %s (needs perl or python3). Nothing changed.' "$SSH_CONFIG"
+            return 1
+        }
         _out ok '✅ IdentityFile added to existing Host %s.' "$host_name"
     else
         _FORWARD_AGENT_WANTED=0
@@ -372,7 +375,10 @@ remove_identity_file_from_config_block() {
         return 0
     fi
 
-    _replace_host_block "$_HOST_BLOCK" "$new_block"
+    _replace_host_block "$_HOST_BLOCK" "$new_block" || {
+        _out error 'Could not edit %s (needs perl or python3). Nothing changed.' "$SSH_CONFIG"
+        return 1
+    }
     _out ok "IdentityFile '%s' removed from config block '%s'." "$keyname" "$host_alias"
 }
 

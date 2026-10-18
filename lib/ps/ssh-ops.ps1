@@ -53,7 +53,7 @@ function Add-SSHKeyToHostConfig {
     if (Find-PrivateKeyInHost -KeyName $KeyName -ReturnResult $true) {
         $sshConfig = Find-ConfigFileOnHost
         $config    = Get-Content -Path $sshConfig -Raw -Encoding UTF8
-        $hostPattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+        $hostPattern = (Get-HostBlockPattern $RemoteHostName)
         $match = [regex]::Match($config, $hostPattern)
 
         if ($match.Success) {
@@ -99,7 +99,7 @@ function Resolve-SSHTarget {
     $configPath = "$env:USERPROFILE\.ssh\config"
     if (Test-Path $configPath) {
         $config  = Get-Content $configPath -Raw -Encoding UTF8
-        $pattern = "(?ms)^Host\s+(\S+).*?(?=^Host\s|\z)"
+        $pattern = (Get-HostBlockPattern)
         # Several Host blocks can share one HostName: the alias the user just picked wins.
         if ($script:_RemoteAlias -and $RemoteHostAddress -eq $script:_RemoteHost -and
             (Get-ConfiguredSSHHosts | Where-Object { $_.Alias -eq $script:_RemoteAlias })) {
@@ -302,8 +302,7 @@ function Remove-IdentityFileFromConfigBlock {
     $sshConfig = Find-ConfigFileOnHost
     if (-not $sshConfig) { return }
     $config     = Get-Content $sshConfig -Raw -Encoding UTF8
-    $aliasE     = [regex]::Escape($HostAlias)
-    $blockMatch = [regex]::Match($config, "(?ms)^Host\s+$aliasE\b.*?(?=^Host\s|\z)")
+    $blockMatch = [regex]::Match($config, (Get-HostBlockPattern $HostAlias))
     if (-not $blockMatch.Success) {
         Write-Out 'warn' "No config block found for '$HostAlias'."
         return
@@ -529,7 +528,7 @@ function Remove-IdentityFileFromConfigEntry {
         return
     }
     $config = Get-Content -Path $ConfigPath -Raw -Encoding UTF8
-    $pattern = "(?ms)^Host\s+$RemoteHostName\b.*?(?=^Host\s|\z)"
+    $pattern = (Get-HostBlockPattern $RemoteHostName)
     $match = [regex]::Match($config, $pattern)
     if (-not $match.Success) {
         Write-Out 'warn' "No Host block found for '$RemoteHostName'"

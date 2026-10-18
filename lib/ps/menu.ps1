@@ -254,8 +254,7 @@ function _MenuRemoveKeyFromConfig {  # choice 9 — pick host then IdentityFile 
     if (-not $hostName) { return }
 
     $configRaw = Get-Content "$env:USERPROFILE\.ssh\config" -Raw -Encoding UTF8
-    $hostEsc   = [regex]::Escape($hostName)
-    $block     = [regex]::Match($configRaw, "(?ms)^Host\s+$hostEsc\b.*?(?=^Host\s|\z)").Value
+    $block     = [regex]::Match($configRaw, (Get-HostBlockPattern $hostName)).Value
     $keyNames  = @([regex]::Matches($block, '(?m)^\s*IdentityFile\s+(.+?)\s*$') |
                    ForEach-Object { [System.IO.Path]::GetFileName($_.Groups[1].Value.Trim().Trim('"')) })
 

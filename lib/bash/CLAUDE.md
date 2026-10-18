@@ -68,7 +68,7 @@ When modifying a module, these are the other files that call its functions:
 Reads `~/.ssh/config` using `perl`, `awk`, `grep`:
 - `get_configured_ssh_hosts`:14 — emits `alias|hostname|user` tuples
 - `get_available_ssh_keys`:28 — lists private keys in `~/.ssh`
-- `_get_host_block`:49 / `_replace_host_block`:143 — multiline Host block read/write
+- `_get_host_block`:49 / `_replace_host_block`:143 — multiline Host block read/write. Values go to perl/python through the environment, never pasted into their code. Matching rules (keyword case, `=`, alias boundary, first value wins) are checked against `ssh -G` by `tests/test_properties.py`
 - `_block_field`:101 — extract a single field from a Host block
 - `get_identity_files_for_host`:60 / `get_hosts_using_key`:87 — cross-reference keys and hosts
 - `get_alias_for_host_ip`:109 — reverse-lookup Host alias from a HostName IP
@@ -219,5 +219,5 @@ bash 3.2 does not reliably implement `read -t 0.05` for poll-style non-blocking 
 - **`_visual_width` emoji correction.** `${#str}` counts Unicode code points, not terminal columns. Non-BMP emoji (4-byte UTF-8, e.g. 🔌🔑📤) = 1 bash char but 2 display cols → add 1. Variation selectors U+FE0F/FE0E = 1 bash char but 0 display cols → subtract 1. These cancel for emoji+VS pairs (🗑️👁️✏️) — no correction needed. Wide BMP symbols ✨➕❌ also need +1. Detection: 4-byte lead bytes via `LC_ALL=C tr`; BMP wide chars by string substitution loop.
 - **`_replace_host_block` silent failure.** Uses `perl` with `python3` fallback. If neither is present it returns 1 and the config block is not updated — callers must handle this or changes are silently lost.
 - **`select_from_list` strict mode (`-s`).** Enter is a no-op unless exactly one filtered item remains. Without `-s`, Enter with a non-empty filter string creates a new item from the typed text — intentional for key-name and host-name inputs.
-- **`_write_key_pair` public key normalization.** In non-copy mode it writes `"${pub_data%$'\n'}"` then appends `\n` — strips any trailing newline from the passed string and adds exactly one back, so `.pub` files always end with exactly one newline regardless of source.
+- **`_write_key_pair` public key normalization.** In non-copy mode it strips every trailing newline from the passed string and adds exactly one back, so `.pub` files always end with exactly one newline regardless of source (U8).
 - **`get_identity_file_from_host_config` expands `~` and `$HOME`.** Other `ssh-config.sh` getters return raw strings. Only this function substitutes `~` → `$HOME` in the returned path; callers of other getters must expand paths themselves if needed.

@@ -177,10 +177,12 @@ remove_host_from_ssh_config() {
         return
     fi
 
-    _replace_host_block "$_HOST_BLOCK" ""
+    _replace_host_block "$_HOST_BLOCK" "" || {
+        printf '  \e[31mCould not edit %s (needs perl or python3). Nothing changed.\e[0m\n' "$SSH_CONFIG"
+        return 1
+    }
 
-    local cleaned; cleaned=$(sed -e 's/[[:space:]]*$//' -e '/^$/N;/^\n$/d' "$SSH_CONFIG")
-    printf '%s\n' "$cleaned" > "$SSH_CONFIG"
+    # No whole-file cleanup afterwards: other blocks stay byte-for-byte (plan D1).
 
     printf '  \e[32mHost '\''%s'\'' removed from SSH config.\e[0m\n' "$host_name"
 }
