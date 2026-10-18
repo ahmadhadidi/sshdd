@@ -282,6 +282,16 @@ _destroy_askpass() {
     unset SSH_ASKPASS SSH_ASKPASS_REQUIRE _ASKPASS_TMP
 }
 
+# Remove one public-key line from the remote user's authorized_keys.
+# The key travels on stdin, never inside the command string: a comment containing ' would
+# otherwise end the quoting and run on the remote (plan Z1). The file is rewritten in place
+# (cat >, not mv from a temp file) so its mode and owner stay what sshd's StrictModes needs (Z3).
+_remote_remove_pubkey() {
+    local target="$1" pubkey="$2"
+    printf '%s\n' "${pubkey%$'\n'}" | ssh "$target" \
+        't=$(mktemp) && k=$(mktemp) && cat > "$k" && awk '\''NR==FNR { keys[$0]; next } !($0 in keys)'\'' "$k" ~/.ssh/authorized_keys > "$t" && cat "$t" > ~/.ssh/authorized_keys; rc=$?; rm -f "$t" "$k"; exit $rc'
+}
+
 # ─── Local filesystem helpers ─────────────────────────────────────────────────
 
 # Ensure ~/.ssh exists with correct permissions.

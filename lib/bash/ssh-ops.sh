@@ -156,16 +156,10 @@ remove_ssh_key_from_remote() {
     _out warn 'Will connect to remove the public key from %s:' "$target"
     printf '  \e[90m  %s\e[0m\n\n' "$(printf '%s' "$pubkey" | tr -d '\n')"
 
-    local remote_cmd
-    remote_cmd="TMP_FILE=\$(mktemp) && printf '%s\n' '${pubkey}' > \$TMP_FILE && \
-awk 'NR==FNR { keys[\$0]; next } !(\$0 in keys)' \$TMP_FILE ~/.ssh/authorized_keys \
-> ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys \
-&& rm -f \$TMP_FILE"
-
     _ssh_fence "$target"
     _spin_start "Connecting to ${target}..."
     local _rm_rc=0
-    ssh "$target" "$remote_cmd" || _rm_rc=$?
+    _remote_remove_pubkey "$target" "$pubkey" || _rm_rc=$?
     _spin_stop
     _ssh_fence_close
 

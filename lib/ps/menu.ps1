@@ -129,11 +129,10 @@ function _MenuDeleteRemoteKey {      # choice 3 — fetch remote authorized_keys
     $pick     = $matchedKeys[$labels.IndexOf($selected)]
 
     $pubContent    = $pick.PubContent
-    $RemoteCommand = "TMP_FILE=`$(mktemp) && printf '%s`\n' '$pubContent' > `$TMP_FILE && awk 'NR==FNR { keys[`$0]; next } !(`$0 in keys)' `$TMP_FILE ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && rm -f `$TMP_FILE"
     Write-Out 'warn' "Removing key '$($pick.KeyName)' from $target..."
     Write-SSHFence $target
     try {
-        ssh $target $RemoteCommand
+        if (-not (Remove-RemotePublicKey -Target $target -PublicKey $pubContent)) { throw "ssh failed" }
         Write-SSHFenceClose
         Write-Out 'ok' "Key removed from remote authorized_keys."
     } catch {

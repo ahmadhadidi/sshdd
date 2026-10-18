@@ -88,6 +88,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 **SSH/filesystem helpers:**
 - `_tcp_check`:190 `HOST` — TCP port-22 reachability check
 - `_ssh_fence`:222 `TARGET` / `_ssh_fence_close`:241 — decorative rule printed around SSH sessions
+- `_remote_remove_pubkey TARGET PUBKEY` — removes one key line from the remote authorized_keys: key on stdin (never in the command: a `'` in a comment ran on the remote), file rewritten in place (keeps mode 600)
 - `_setup_askpass`:256 / `_destroy_askpass`:272 — temporary `SSH_ASKPASS` script for padded prompts
 - `_ensure_ssh_dir`:280 — `mkdir -p ~/.ssh && chmod 700`
 - `_write_key_pair`:291 `DEST_PRIV DEST_PUB DATA DATA [copy_mode]` — write or copy a key pair with permission enforcement

@@ -5,6 +5,32 @@
 
 # ─── Output helpers ───────────────────────────────────────────────────────────
 
+function ConvertTo-NativeArgument {
+    # PowerShell 7.3+ passes native-command arguments verbatim. Windows PowerShell 5.1 and
+    # PS <= 7.2 ("Legacy") drop empty strings and don't escape embedded quotes, so a passphrase
+    # or comment with " or an empty -N '' would reach ssh-keygen changed. Escape for them only.
+    param([string]$Value)
+    $mode = Get-Variable PSNativeCommandArgumentPassing -ValueOnly -ErrorAction SilentlyContinue
+    if ($mode -and $mode -ne 'Legacy') { return $Value }
+    if ($Value -eq '') { return '""' }
+    $v = $Value -replace '(\\*)"', '$1$1\"'
+    if ($v -match '\s') { $v = $v -replace '(\\+)$', '$1$1' }
+    return $v
+}
+
+
+function Remove-RemotePublicKey {
+    # Same as bash _remote_remove_pubkey: the key travels on stdin, never inside the command
+    # (a comment with ' would run on the remote, plan Z1); authorized_keys is rewritten in place,
+    # keeping its mode (Z3); CR is stripped because PS 5.1 pipes text with CRLF. Returns $true on success.
+    param([string]$Target, [string]$PublicKey)
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $cmd = 't=$(mktemp) && k=$(mktemp) && tr -d ''\r'' > "$k" && awk ''NR==FNR { keys[$0]; next } !($0 in keys)'' "$k" ~/.ssh/authorized_keys > "$t" && cat "$t" > ~/.ssh/authorized_keys; rc=$?; rm -f "$t" "$k"; exit $rc'
+    $PublicKey.TrimEnd("`r", "`n") | ssh $Target (ConvertTo-NativeArgument $cmd)
+    return ($LASTEXITCODE -eq 0)
+}
+
+
 function Write-Out {
     # Write-Out STYLE FORMAT [ARGS...]
     # Prints a 2-space indented, color-coded line.
@@ -13,7 +39,7 @@ function Write-Out {
     param(
         [string]$Style,
         [string]$Format,
-        [object[]]$Args = @()
+        [Parameter(ValueFromRemainingArguments)][object[]]$FormatArgs = @()
     )
     $code = switch ($Style) {
         'ok'      { 32 }
@@ -25,7 +51,7 @@ function Write-Out {
         'plain'   { 97 }
         default   { 37 }
     }
-    $text = if ($Args.Count -gt 0) { $Format -f $Args } else { $Format }
+    $text = if ($FormatArgs.Count -gt 0) { $Format -f $FormatArgs } else { $Format }
     [Console]::WriteLine("  `e[${code}m${text}`e[0m")
 }
 
@@ -35,9 +61,9 @@ function Write-OutItem {
     # Prints "  + text" with a green plus sign.
     param(
         [string]$Format,
-        [object[]]$Args = @()
+        [Parameter(ValueFromRemainingArguments)][object[]]$FormatArgs = @()
     )
-    $text = if ($Args.Count -gt 0) { $Format -f $Args } else { $Format }
+    $text = if ($FormatArgs.Count -gt 0) { $Format -f $FormatArgs } else { $Format }
     [Console]::WriteLine("  `e[32m+`e[0m  ${text}")
 }
 

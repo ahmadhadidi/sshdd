@@ -43,9 +43,9 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### A — static
 - **A1** ✅ `bash -n` all scripts (pre-commit, `make check`).
-- **A2** 🔨 `shellcheck` all bash at error+warning level, with a reviewed allowlist.
-- **A3** 🔨 bash-3.2 ban list as a test (`${x,,}`, `declare -A`, `${x@Q}`, `printf %q`, `read -t 0.x`, `mapfile`).
-- **A4** 🔨 PowerShell: parser has 0 errors on every `.ps1`; PSScriptAnalyzer if installed.
+- **A2** ✅ `shellcheck -S warning` on all bash, SC2034 off (globals shared across files) — `test_static.py`.
+- **A3** ✅ bash-3.2 ban list per file — `test_static.py`.
+- **A4** ✅ PS parser 0 errors; PSScriptAnalyzer risky rules (automatic-variable assignment, Invoke-Expression outside the loader, aliases) — `test_static.py`.
 
 ### U — unit (bash and PowerShell)
 - **U1** ✅ config getters: case, tabs, `Key=value` (bash + PS).
@@ -100,9 +100,9 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **D3** 🔨 delete operations remove only what was confirmed.
 
 ### Z — security
-- **Z1** 🔨 key name, comment, host, user, password containing `'`, `"`, `$(…)`, `` ` ``, `;`, newline: no command runs locally or on the remote (canary file).
+- **Z1** ✅ PS key generation (comment/passphrase literal, both argument modes) · ✅ remote key removal bash + PS on CT 213 (canary) · 🔨 the other inputs (name, host, user, password) through every op.
 - **Z2** 🔨 password never in the debug log, never in `ps` output for longer than the call, temp files 600/700.
-- **Z3** 🔨 remote `authorized_keys` edits leave other users' keys and the file mode intact.
+- **Z3** ✅ remote key removal keeps other keys and mode 600 (bash + PS) · 🔨 install/promote paths.
 
 ### R — remote (CT 213)
 - **R1–R4** ✅ install, test, delete, promote, list, add config block (existing 01–07).
@@ -138,3 +138,6 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 ## Findings while building the tests
 
 - OpenSSH reads `~/.ssh` from the passwd home dir, not `$HOME`, while sshdd edits `$HOME/.ssh/config`. Same dir in normal use; differs under `sudo -E` or a changed `HOME` (then sshdd's edits don't reach `ssh`). Not fixed; would need `-F "$SSH_CONFIG"` on every ssh call.
+- PS `Add-SSHKeyInHost` ran ssh-keygen through `Invoke-Expression`: a comment with `$(…)` executed, passphrases with `$`/`"` were altered. Fixed (args + `ConvertTo-NativeArgument`).
+- PS turned the passphrase back into text with `PtrToStringAuto`, which on macOS/Linux pwsh returns only its first character. Fixed (NetworkCredential).
+- Remote key removal (bash + PS) pasted the key inside '…' in the remote command: a comment with `'` ran on the remote (proven on CT 213), and `mv` from a temp file reset authorized_keys to the temp file's mode (600→644 on CT 213; 664 under umask 002 locks every key out). Fixed: key on stdin, file rewritten in place. PS also reported success when ssh failed.

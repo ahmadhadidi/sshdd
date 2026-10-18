@@ -4,7 +4,7 @@
 # Usage:
 #   bash scripts/run-tests.sh [pytest-args...]
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 if ! command -v pytest &>/dev/null && ! command -v python3 &>/dev/null; then
     printf '  \e[90mpython3/pytest not found — skipping tests\e[0m\n'

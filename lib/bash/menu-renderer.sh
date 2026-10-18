@@ -40,15 +40,15 @@ _invoke_choice() {
 # so the bar never wraps onto a second row (a wrap scrolls the whole screen up).
 _hint_bar() {
     local w="$1"; shift
-    local -a k=() l=()
-    while (( $# >= 2 )); do k+=("$1"); l+=("$2"); shift 2; done
-    local n=${#k[@]} keep=$(( ${#k[@]} - 1 )) i plain out
+    local -a _hk=() _hl=()
+    while (( $# >= 2 )); do _hk+=("$1"); _hl+=("$2"); shift 2; done
+    local n=${#_hk[@]} keep=$(( ${#_hk[@]} - 1 )) i plain out
     while :; do
         plain="" out=""
         for (( i=0; i<n; i++ )); do
             (( i >= keep && i < n - 1 )) && continue
-            plain+="   ${k[$i]} ${l[$i]}"
-            out+=$'   \e[1m'"${k[$i]}"$'\e[0;7m '"${l[$i]}"
+            plain+="   ${_hk[$i]} ${_hl[$i]}"
+            out+=$'   \e[1m'"${_hk[$i]}"$'\e[0;7m '"${_hl[$i]}"
         done
         plain="  ${plain:3}"; out="  ${out:3}"
         (( ${#plain} <= w || keep == 0 )) && break
@@ -105,7 +105,7 @@ show_main_menu() {
             fr_type+=("blank");  fr_label+=("");               fr_nidx+=(-1); fr_choice+=(""); fr_hotkey+=("")
             fr_type+=("header"); fr_label+=("${m_label[$i]}"); fr_nidx+=(-1); fr_choice+=(""); fr_hotkey+=("")
         else
-            fr_type+=("item");   fr_label+=("${m_label[$i]}"); fr_nidx+=($ni); fr_choice+=("${m_choice[$i]}"); fr_hotkey+=("${m_hotkey[$i]}")
+            fr_type+=("item");   fr_label+=("${m_label[$i]}"); fr_nidx+=("$ni"); fr_choice+=("${m_choice[$i]}"); fr_hotkey+=("${m_hotkey[$i]}")
             (( ni++ ))
         fi
     done

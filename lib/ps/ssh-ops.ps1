@@ -14,8 +14,9 @@ function Add-SSHKeyInHost {
 
     Write-Host -NoNewline "  `e[36mPassphrase`e[0m `e[90m(empty = passwordless)`e[0m  " -ForegroundColor Cyan
     $securePass = Read-Host -AsSecureString
-    $Password   = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-                      [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass))
+    # NetworkCredential, not PtrToStringAuto(SecureStringToBSTR(...)): on macOS/Linux pwsh that
+    # reads the UTF-16 BSTR as UTF-8 and returns only the first character of the passphrase.
+    $Password   = [System.Net.NetworkCredential]::new('', $securePass).Password
 
     $stars = if ($Password) { "*" * $Password.Length } else { "`e[90m(none)`e[0m" }
     Write-Host ""
@@ -29,9 +30,10 @@ function Add-SSHKeyInHost {
 
     Write-Out 'dim' "Generating SSH key..."
 
-    $sshKeygenCmd = "ssh-keygen -t ed25519 -f `"$env:USERPROFILE\.ssh\$KeyName`" -C `"$Comment`""
-    $sshKeygenCmd += if ($Password) { " -N `"$Password`"" } else { " -N ''" }
-    Invoke-Expression $sshKeygenCmd
+    # Arguments, never a command string: Invoke-Expression evaluated $(...) inside the comment
+    # and mangled passphrases containing $ or " (plan Z1).
+    $keyPath = Join-Path (Join-Path $env:USERPROFILE ".ssh") $KeyName
+    & ssh-keygen -q -t ed25519 -f (ConvertTo-NativeArgument $keyPath) -C (ConvertTo-NativeArgument $Comment) -N (ConvertTo-NativeArgument $Password)
 
     Write-OutItem "$env:USERPROFILE\.ssh\$KeyName  generated."
 }
@@ -331,14 +333,12 @@ function Remove-SSHKeyFromRemote {
     $target        = Resolve-SSHTarget -RemoteHostAddress $RemoteHost -RemoteUser $RemoteUser
     Write-IdentityFiles $RemoteHost
 
-    $RemoteCommand = "TMP_FILE=`$(mktemp) && printf '%s`\n' '$PublicKey' > `$TMP_FILE && awk 'NR==FNR { keys[`$0]; next } !(`$0 in keys)' `$TMP_FILE ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && rm -f `$TMP_FILE"
-
     Write-Out 'warn' "Will connect to remove the public key from ${target}:"
     Write-Out 'dim'  "  $($PublicKey.Trim())"
 
     Write-SSHFence $target
     try {
-        ssh $target $RemoteCommand
+        if (-not (Remove-RemotePublicKey -Target $target -PublicKey $PublicKey)) { throw "ssh failed" }
         Write-SSHFenceClose
         Write-Out 'ok' 'SSH key removed from remote authorized_keys.'
 

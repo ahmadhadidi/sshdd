@@ -165,15 +165,10 @@ _menu_delete_remote_key() {      # choice 3
     local picked_key="${matched_keys[$picked_idx]}"
     local pub_content; pub_content=$(cat "$SSH_DIR/${picked_key}.pub")
 
-    local remote_cmd
-    remote_cmd="TMP_FILE=\$(mktemp) && printf '%s\n' '${pub_content}' > \$TMP_FILE && \
-awk 'NR==FNR { keys[\$0]; next } !(\$0 in keys)' \$TMP_FILE ~/.ssh/authorized_keys \
-> ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys \
-&& rm -f \$TMP_FILE"
     printf '  \e[33mRemoving key '\''%s'\'' from %s...\e[0m\n' "$picked_key" "$target"
     _ssh_fence "$target"
     local _rm_rc=0
-    ssh "$target" "$remote_cmd" || _rm_rc=$?
+    _remote_remove_pubkey "$target" "$pub_content" || _rm_rc=$?
     _ssh_fence_close
     if (( _rm_rc != 0 )); then
         printf '  \e[31mFailed to remove key from remote.\e[0m\n'

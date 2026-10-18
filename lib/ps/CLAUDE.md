@@ -48,7 +48,7 @@ When modifying a PS module, these are the other files that call its functions:
 
 ### ssh-helpers.ps1
 
-- `Write-Out`:8 `STYLE FORMAT [ARGS...]` — 2-space indented, color-coded line to Console. Styles: `ok` (green), `warn` (yellow), `error` (red), `info` (cyan), `dim` (gray), `heading` (bright-cyan), `plain` (bright-white)
+- `Write-Out`:8 `STYLE FORMAT [ARGS...]` (format args collected in `$FormatArgs`; never name a parameter `$Args`) — 2-space indented, color-coded line to Console. Styles: `ok` (green), `warn` (yellow), `error` (red), `info` (cyan), `dim` (gray), `heading` (bright-cyan), `plain` (bright-white)
 - `Write-OutItem`:33 `FORMAT [ARGS...]` — green `+` prefix, plain text
 - `Show-OpBanner`:45 `Pairs [StartRow]` — stream mode (default, `StartRow -lt 0`): prints to Console. Buffer mode (`StartRow >= 0`): writes positioned ANSI into `$script:_OpBannerBuf` for the caller to include in a frame. Always sets `$script:_OpBannerRows`. Unlike bash, no `_SFL_BANNER_ROWS` offset needed — PS `Select-FromList` uses `CursorTop + 3` for dynamic positioning.
 - `Write-SSHFence`:137 / `Write-SSHFenceClose`:157 — decorative dim rule around SSH session output; purely visual, no functional effect
@@ -87,7 +87,7 @@ When modifying a PS module, these are the other files that call its functions:
 
 All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console]::Write` escape codes.
 
-- `Add-SSHKeyInHost`:9 `KeyName Comment` — prompts passphrase via `Read-Host -AsSecureString` (masked); runs `ssh-keygen -t ed25519` via `Invoke-Expression`; key name and comment must not contain shell-special characters
+- `Add-SSHKeyInHost`:9 `KeyName Comment` — prompts passphrase via `Read-Host -AsSecureString` (masked, converted with NetworkCredential; `PtrToStringAuto` breaks on macOS/Linux); calls `ssh-keygen` with arguments through `ConvertTo-NativeArgument`, never `Invoke-Expression`
 - `Add-SSHKeyToHostConfig`:40 `KeyName RemoteHostName RemoteHostAddress RemoteUser` — if block exists: inserts `IdentityFile` after the last existing one (or after the `Host` line if none); skips if already present. If block absent: appends a new block at EOF.
 - `Resolve-SSHTarget`:89 `RemoteHostAddress RemoteUser` — prefers `$script:_RemoteAlias` when the address is `$script:_RemoteHost` (several blocks may share an IP); otherwise returns `user@alias` if a config block exists (by alias or HostName match), so SSH applies the full block (including `ServerAliveInterval`, `ForwardAgent`, etc.); falls back to `user@IP`
 - `Install-SSHKeyOnRemote`:117 `KeyName` — copies public key to remote `authorized_keys`, then prompts for alias and calls `Add-SSHKeyToHostConfig`
@@ -148,5 +148,5 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 - **`return $true` propagation for skip-wait.** Handlers that run their own full-screen TUI (pagers, conf editor) return `$true`. `Invoke-MenuChoice` uses `return _MenuXxx` so the handler's return value flows through. `_InvokeMenuAction` checks `$skipWait = Invoke-MenuChoice ...` and skips `Wait-UserAcknowledge` when truthy.
 - **`[Console]::Write` vs `Write-Host` vs `Write-Out`.** TUI frames (full-screen renders, ANSI positioning) use `[Console]::Write` — it bypasses PowerShell's output pipeline. `Write-Out` uses `[Console]::WriteLine` for 2-space indented operation output. `Write-Host` is used only in legacy or simple output where pipeline capture doesn't matter.
 - **`Set-Content -Encoding UTF8` writes a BOM on PS 5.x.** `Add-SSHKeyToHostConfig` and `Remove-IdentityFileFromConfigEntry` use `Set-Content` — generally acceptable for SSH config. For key files and BOM-sensitive paths use `[System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::UTF8)` (BOM-free), as `Write-KeyPair` and `Remove-HostFromSSHConfig` do.
-- **`Add-SSHKeyInHost` uses `Invoke-Expression`** (in `ssh-ops.ps1`). Built as a string to handle the empty-passphrase `-N ''` flag cleanly. Key name and comment must not contain shell-special characters (`"`, `` ` ``, `$`).
+- **Native commands get arguments, never command strings.** Pass user text through `ConvertTo-NativeArgument` (ssh-helpers.ps1): PS 7.3+ passes it verbatim; Windows PowerShell 5.1 drops empty strings and doesn't escape quotes, so it escapes for them. Remote commands never embed user text: send it on stdin (`Remove-RemotePublicKey`). Check `$LASTEXITCODE` after `ssh`: a failing native command doesn't throw.
 - **`_LastSelectedAlias` is set by `Read-RemoteHostAddress`, cleared on manual entry.** Unlike bash (subshell-loss risk), the PS problem is simply that manual IP entry clears the alias. `Invoke-RemotePrompt` reads `$script:_LastSelectedAlias` after `Read-RemoteHostAddress` returns — always use `Invoke-RemotePrompt` rather than calling `Read-RemoteHostAddress` directly if you need the alias.

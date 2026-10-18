@@ -4,7 +4,7 @@
 # Usage:
 #   bash scripts/check.sh
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 failed=0
 

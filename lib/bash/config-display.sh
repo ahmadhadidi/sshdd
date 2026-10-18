@@ -261,7 +261,8 @@ show_ssh_key_inventory() {
     local _VB=$'\xe2\x94\x82' _TT=$'\xe2\x94\xac' _BT=$'\xe2\x94\xb4'
     local _LT=$'\xe2\x94\x9c' _RT=$'\xe2\x94\xa4' _CT=$'\xe2\x94\xbc'
     local tbl_top="  ${_TL}${r1}${_TT}${r2}${_TT}${r3}${_TT}${r4}${_TT}${r5}${_TR}"
-    local tbl_hdr="  ${_VB} $(printf '%*s' "$w_num" '#') ${_VB} $(printf '%-*s' "$w_key" 'Key') ${_VB} Pub ${_VB} Prv ${_VB} $(printf '%-*s' "$w_use" 'Usage') ${_VB}"
+    local tbl_hdr
+    tbl_hdr="  ${_VB} $(printf '%*s' "$w_num" '#') ${_VB} $(printf '%-*s' "$w_key" 'Key') ${_VB} Pub ${_VB} Prv ${_VB} $(printf '%-*s' "$w_use" 'Usage') ${_VB}"
     local tbl_sep="  ${_LT}${r1}${_CT}${r2}${_CT}${r3}${_CT}${r4}${_CT}${r5}${_RT}"
     local tbl_bot="  ${_BL}${r1}${_BT}${r2}${_BT}${r3}${_BT}${r4}${_BT}${r5}${_BR}"
 

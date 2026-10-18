@@ -10,7 +10,7 @@
 #
 # Run before committing after any edit that shifts line numbers.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 # ── 1. Index every function definition in lib/ ────────────────────────────────
 declare -A MAP  # funcname → linenum
