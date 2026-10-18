@@ -298,6 +298,11 @@ _valid_key_name() {
     [[ $1 =~ ^[A-Za-z0-9_][A-Za-z0-9._@+-]*$ && $1 != *..* ]]
 }
 
+# Remote side of "install a public key" (key on stdin). Appends only if that exact line isn't there
+# (plan R7: installing twice duplicated it), adds a missing final newline first (else the key is glued
+# onto the last one), and creates ~/.ssh 700 / authorized_keys 600 when they don't exist. Prints hostname.
+_REMOTE_INSTALL_CMD='umask 077; mkdir -p .ssh && touch .ssh/authorized_keys && k=$(tr -d '\''\r'\'') && { [ ! -s .ssh/authorized_keys ] || [ -z "$(tail -c1 .ssh/authorized_keys)" ] || echo >> .ssh/authorized_keys; } && { grep -qxF "$k" .ssh/authorized_keys || printf '\''%s\n'\'' "$k" >> .ssh/authorized_keys; } && hostname'
+
 # ─── Local filesystem helpers ─────────────────────────────────────────────────
 
 # Ensure ~/.ssh exists with correct permissions.

@@ -56,7 +56,7 @@ install_ssh_key_on_remote() {
         _spin_start "Installing on ${target}..."
         remote_hostname=$(printf '%s\n' "$pubkey" | \
             sshpass -p "$DEFAULT_PASSWORD" ssh -o StrictHostKeyChecking=accept-new \
-            "$target" 'mkdir -p .ssh && cat >> .ssh/authorized_keys && hostname' 2>&1)
+            "$target" "$_REMOTE_INSTALL_CMD" 2>&1)
         local _ik_rc=$?
         _spin_stop
         if (( _ik_rc != 0 )); then
@@ -67,7 +67,7 @@ install_ssh_key_on_remote() {
     else
         _ssh_fence "$target"
         remote_hostname=$(printf '%s\n' "$pubkey" | \
-            ssh "$target" 'mkdir -p .ssh && cat >> .ssh/authorized_keys && hostname' 2>&1) || {
+            ssh "$target" "$_REMOTE_INSTALL_CMD" 2>&1) || {
             _ssh_fence_close
             _out error 'Failed to inject SSH key. Check network, credentials, or host status.'
             _dbg "install_ssh_key_on_remote: ssh failed"

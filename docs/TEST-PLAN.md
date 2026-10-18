@@ -105,10 +105,10 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **Z3** ✅ remote key removal keeps other keys and mode 600 (bash + PS) · 🔨 install/promote paths.
 
 ### R — remote (CT 213)
-- **R1–R4** ✅ install, test, delete, promote, list, add config block (existing 01–07).
+- **R1–R4** ✅ end to end on CT 213 (`test_remote_ops.py`, 01, `test_lxc_connection.py`): generate & install, install, test (authorized / not), delete (others and mode kept), list · 🔨 promote (P), add config block (N), append hostname (A). Note: the older tests 02–07 only open each screen.
 - **R5** 🔨 password auth and key auth for every remote op.
 - **R6** 🔨 unreachable host / closed port.
-- **R7** 🔨 duplicate key already in `authorized_keys`: not added twice.
+- **R7** ✅ installing a key that's already there doesn't duplicate it; a last line without newline isn't corrupted.
 - **R8** 🔨 passphrase-protected key.
 
 ### C — cloud
@@ -157,3 +157,4 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Errors in operations returned 1, which also means "skip Press any key", so the message flashed away (e.g. empty import path). Fixed: `_out error` sets `_OP_ERROR` and the ack is shown.
 - The passphrase prompt (`read -s`) took Esc as a character: the key got a passphrase containing `\x1b`. Fixed: `read_secret` (Esc cancels, Backspace edits). Generate & Install also carried on after a cancelled key generation.
 - **Key names could leave `~/.ssh`**: G and Import took `../../x` and ssh-keygen / the import wrote there. Fixed: `_valid_key_name` / `Test-SSHKeyName` where keys are written (generation and import), not only in W's prompt.
+- **Install appended the key every time** (duplicates in `authorized_keys`) and glued it onto a last line without a newline, breaking both keys. Fixed: one shared remote install command (bash `_REMOTE_INSTALL_CMD`, PS `RemoteInstallCommand`) that appends only if absent, fixes the newline, and creates `~/.ssh` 700 / `authorized_keys` 600.

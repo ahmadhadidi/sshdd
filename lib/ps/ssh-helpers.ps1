@@ -52,6 +52,11 @@ function Test-SSHKeyName {
 }
 
 
+# Same as bash _REMOTE_INSTALL_CMD: append the key (stdin) only if absent, fix a missing final newline,
+# create ~/.ssh 700 / authorized_keys 600 when missing (plan R7). Prints the remote hostname.
+$script:RemoteInstallCommand = 'umask 077; mkdir -p .ssh && touch .ssh/authorized_keys && k=$(tr -d ''\r'') && { [ ! -s .ssh/authorized_keys ] || [ -z "$(tail -c1 .ssh/authorized_keys)" ] || echo >> .ssh/authorized_keys; } && { grep -qxF "$k" .ssh/authorized_keys || printf ''%s\n'' "$k" >> .ssh/authorized_keys; } && hostname'
+
+
 function Write-Out {
     # Write-Out STYLE FORMAT [ARGS...]
     # Prints a 2-space indented, color-coded line.
