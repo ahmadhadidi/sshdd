@@ -228,9 +228,11 @@ _menu_append_key_to_config() {   # choice 7
     else
         printf '  \e[33m🚨 Could not verify '\''%s'\'' on %s — it may not be installed yet.\e[0m\n' \
             "$keyname" "$host_display"
-        local proceed
-        proceed=$(read_host_with_default "Add to config anyway? (y/N):" "N") || proceed="N"
-        [[ "$proceed" =~ ^[yY] ]] || return 0
+        # Same [y/N] question as everywhere else (was a pre-filled text prompt "(y/N): N").
+        local _anyway=0
+        _add_anyway() { _anyway=1; }
+        confirm_user_choice "Add it to the config anyway?" n _add_anyway || return 0
+        (( _anyway )) || return 0
     fi
     add_ssh_key_to_host_config "$keyname" "$host_name" "$host_addr" "$remote_user"
 }

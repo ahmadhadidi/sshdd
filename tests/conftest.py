@@ -31,18 +31,22 @@ def real_ssh_untouched():
         {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)})
 
 
-TMP_GLOBS = ("/tmp/.hprobe-*", "/tmp/.ssh-askpass-*")
+TMP_GLOBS = ("/tmp/.hprobe-*", "/tmp/.ssh-askpass-*", "/tmp/.sshdd-*")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def no_temp_files_left():
-    """T1: sshdd removes its temp files however a test ends it (Term.close sends SIGHUP first)."""
+    """T1: sshdd removes its temp files however a test ends it (Term.close sends SIGHUP first).
+    Checked per test so a leak names its test; waits up to 3 s for a probe still timing out."""
     import glob
-    before = {f for g in TMP_GLOBS for f in glob.glob(g)}
-    yield
     import time
-    time.sleep(2.5)                                   # a probe still in its 2 s timeout
-    left = {f for g in TMP_GLOBS for f in glob.glob(g)} - before
+    def now():
+        return {f for g in TMP_GLOBS for f in glob.glob(g)}
+    before = now()
+    yield
+    end = time.time() + 3
+    while (left := now() - before) and time.time() < end:
+        time.sleep(0.2)
     assert not left, f"temp files left behind: {sorted(left)[:5]} ({len(left)})"
 
 
@@ -80,12 +84,16 @@ def isolated_home(tmp_path_factory, monkeypatch):
 def end_like_terminal(child):
     """End an app the way a closing terminal does: SIGHUP to its whole process group, then wait.
     pexpect's own close() signals only the bash pid and SIGKILLs it ~0.2 s later, before sshdd's
-    trap has run (bash waits for its foreground child first), so temp files were left (T1)."""
+    trap has run, so temp files were left (T1). SIGHUP is repeated: one that lands just before
+    sshdd forks a $(...) prompt subshell misses that subshell, which then waits for input forever
+    (a real hang-up also makes its tty read fail; an open pty doesn't)."""
     import signal
-    if child.isalive():
+    for _ in range(6):
+        if not child.isalive():
+            return
         try:
             os.killpg(os.getpgid(child.pid), signal.SIGHUP)
-            child.expect(pexpect.EOF, timeout=3)
+            child.expect(pexpect.EOF, timeout=0.5)
         except Exception:
             pass
     if child.isalive():

@@ -192,8 +192,10 @@ function _MenuAppendKeyToConfig {    # choice 7 — verify key works on remote, 
         Write-Out 'ok' "Key verified on $hostDisplay."
     } else {
         Write-Out 'warn' "Could not verify '$KeyName' on $hostDisplay — it may not be installed yet."
-        $proceed = Read-HostWithDefault -Prompt "Add to config anyway? (y/N):" -Default "N"
-        if ($proceed -notmatch '^[Yy]') { return }
+        # Same [y/N] question as everywhere else (was a pre-filled text prompt "(y/N): N").
+        $script:_addAnyway = $false
+        Confirm-UserChoice -Message "  Add it to the config anyway?" -Action { $script:_addAnyway = $true } -DefaultAnswer "n"
+        if (-not $script:_addAnyway) { return }
     }
     Add-SSHKeyToHostConfig -KeyName $KeyName -RemoteHostName $hostName -RemoteHostAddress $RemoteHostAddress -RemoteUser $RemoteUser
 }

@@ -188,9 +188,29 @@ _draw_op_header() {
 
 # TCP port-22 pre-check. Returns 0 if reachable.
 _tcp_check() {
-    local host="$1"
-    timeout 3 bash -c "echo >/dev/tcp/$host/22" 2>/dev/null
+    local host="$1" secs="${2:-3}"
+    # Host as an argument, never inside the -c string (a crafted HostName ran as code).
+    _with_timeout "$secs" bash -c 'echo >"/dev/tcp/$1/22"' _ "$host" 2>/dev/null
 }
+
+# Run CMD..., killed after SECS. Plain bash: macOS has no `timeout` (GNU coreutils), which made
+# every host look unreachable and every Test Connection say "refused" on a stock Mac (plan E5).
+_with_timeout() {
+    local secs="$1" pid watcher rc
+    shift
+    "$@" &
+    pid=$!
+    ( sleep "$secs"; kill -9 "$pid" 2>/dev/null ) &
+    watcher=$!
+    wait "$pid"; rc=$?
+    kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+    return "$rc"
+}
+
+# Every ssh/scp sshdd runs gives up connecting after 10 s: without it an unreachable host hung each
+# operation for the system TCP timeout (~2 min on Linux) with no message (plan E5).
+ssh() { command ssh -o ConnectTimeout=10 "$@"; }
+scp() { command scp -o ConnectTimeout=10 "$@"; }
 
 # Animated spinner at the terminal's last row while a blocking operation runs.
 # Usage: _spin_start "message"; <blocking command>; _spin_stop
@@ -257,12 +277,27 @@ _ssh_fence_close() {
 _CLEANUP_PATHS=()
 _cleanup_add() { _CLEANUP_PATHS+=("$@"); }
 
+# _mktemp_reg VAR PREFIX — create an empty temp file /tmp/PREFIX-…, registered for cleanup BEFORE it
+# exists. With VAR=$(mktemp) a signal during the subshell created the file but lost its name, so
+# exit cleanup could never remove it (plan T1). Exclusive create via noclobber; 600 by umask.
+_mktemp_reg() {
+    local _p _i
+    for (( _i = 0; _i < 20; _i++ )); do
+        _p="/tmp/$2-$$-$RANDOM$RANDOM"
+        _cleanup_add "$_p"
+        if ( umask 077; set -C; : > "$_p" ) 2>/dev/null; then
+            printf -v "$1" '%s' "$_p"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Create a temporary SSH_ASKPASS helper so password/passphrase prompts are
 # displayed with 2-space padding. Requires OpenSSH 8.4+ (SSH_ASKPASS_REQUIRE=force).
 # Call _destroy_askpass when the SSH operation completes.
 _setup_askpass() {
-    _ASKPASS_TMP=$(mktemp /tmp/.ssh-askpass-XXXXXX 2>/dev/null) || return 0
-    _cleanup_add "$_ASKPASS_TMP"
+    _mktemp_reg _ASKPASS_TMP .ssh-askpass || return 0
     chmod 700 "$_ASKPASS_TMP"
     cat > "$_ASKPASS_TMP" << 'ASKPASS_SCRIPT'
 #!/bin/bash
@@ -363,8 +398,7 @@ _prompt_remote() {
     # picks an existing alias) is not lost in a subshell. Without this, two hosts
     # sharing the same IP cause get_alias_for_host_ip to return the wrong alias.
     local _rha_out
-    _rha_out=$(mktemp) || return 1
-    _cleanup_add "$_rha_out"
+    _mktemp_reg _rha_out .sshdd-host || return 1
     read_remote_host_address "$DEFAULT_SUBNET_PREFIX" > "$_rha_out" || { rm -f "$_rha_out"; return 1; }
     _REMOTE_HOST=$(<"$_rha_out")
     rm -f "$_rha_out"

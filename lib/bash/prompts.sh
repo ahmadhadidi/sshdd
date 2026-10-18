@@ -323,11 +323,9 @@ read_remote_host_address() {
         local -a _probe_files=() _probe_pids=()
         local _pi _pf
         for (( _pi=0; _pi<${#host_ips[@]}; _pi++ )); do
-            _pf=$(mktemp /tmp/.hprobe-XXXXXX 2>/dev/null || \
-                  printf '/tmp/.hprobe-%s-%d' "$$" "$_pi")
-            _probe_files+=("$_pf"); _cleanup_add "$_pf"
-            ( timeout 2 bash -c "echo >/dev/tcp/${host_ips[$_pi]}/22" 2>/dev/null \
-                && printf 1 || printf 0 ) > "$_pf" &
+            _mktemp_reg _pf .hprobe || _pf=/dev/null   # keep _probe_files aligned with the hosts
+            _probe_files+=("$_pf")
+            ( _tcp_check "${host_ips[$_pi]}" 2 && printf 1 || printf 0 ) > "$_pf" &
             _probe_pids+=($!)
         done
         _spin_start "Checking host availability..."

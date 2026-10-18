@@ -57,6 +57,15 @@ function Test-SSHKeyName {
 $script:RemoteInstallCommand = 'umask 077; mkdir -p .ssh && touch .ssh/authorized_keys && k=$(tr -d ''\r'') && { [ ! -s .ssh/authorized_keys ] || [ -z "$(tail -c1 .ssh/authorized_keys)" ] || echo >> .ssh/authorized_keys; } && { grep -qxF "$k" .ssh/authorized_keys || printf ''%s\n'' "$k" >> .ssh/authorized_keys; } && hostname'
 
 
+# Every ssh sshdd runs gives up connecting after 10 s: without it an unreachable host hung each
+# operation for the system TCP timeout (~2 min) with no message (plan E5). Pipeline input is passed on.
+function ssh {
+    $exe = (Get-Command ssh -CommandType Application | Select-Object -First 1).Source
+    if ($MyInvocation.ExpectingInput) { $input | & $exe -o ConnectTimeout=10 @args }
+    else { & $exe -o ConnectTimeout=10 @args }
+}
+
+
 function Write-Out {
     # Write-Out STYLE FORMAT [ARGS...]
     # Prints a 2-space indented, color-coded line.

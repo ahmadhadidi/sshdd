@@ -56,7 +56,7 @@ install_ssh_key_on_remote() {
         _spin_start "Installing on ${target}..."
         # -e (password from $SSHPASS), never -p: -p puts it in argv, readable by every user via ps (Z2).
         remote_hostname=$(printf '%s\n' "$pubkey" | \
-            SSHPASS="$DEFAULT_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=accept-new \
+            SSHPASS="$DEFAULT_PASSWORD" sshpass -e ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
             "$target" "$_REMOTE_INSTALL_CMD" 2>&1)
         local _ik_rc=$?
         _spin_stop
@@ -95,7 +95,7 @@ test_ssh_connection() {
     _dbg "test_ssh_connection: user='$user' host='$host' identity='$identity'"
 
     if ! _tcp_check "$host"; then
-        _out error 'Connection refused: %s is not accepting SSH on port 22.' "$host"
+        _out error 'Cannot reach %s on port 22 (refused, filtered or timed out).' "$host"
         return 1
     fi
 

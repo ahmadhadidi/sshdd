@@ -166,7 +166,7 @@ _replace_host_block() {
     # managers) with a plain file, so the real config stopped getting edits (plan E2).
     if command -v perl &>/dev/null; then
         local _tmp
-        _tmp=$(mktemp) && _cleanup_add "$_tmp" 2>/dev/null
+        _mktemp_reg _tmp .sshdd-cfg 2>/dev/null || _tmp=$(mktemp)
         if _SSHDD_OLD="$old_block" _SSHDD_NEW="$new_block" perl -0777 -pe \
             'BEGIN { $o = $ENV{_SSHDD_OLD}; $n = $ENV{_SSHDD_NEW} } $n eq "" ? s/\Q$o\E\n?// : s/\Q$o\E/$n/' \
             "$SSH_CONFIG" > "$_tmp" 2>/dev/null && cat "$_tmp" > "$SSH_CONFIG"; then

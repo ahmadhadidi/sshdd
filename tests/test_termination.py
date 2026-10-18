@@ -17,7 +17,7 @@ import pytest
 
 from .screen import BASH32, ROOT
 
-TMP_GLOBS = ["/tmp/.hprobe-*", "/tmp/.ssh-askpass-*"]
+TMP_GLOBS = ["/tmp/.hprobe-*", "/tmp/.ssh-askpass-*", "/tmp/.sshdd-*"]
 PROMPT = "READY> "
 
 

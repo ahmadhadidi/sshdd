@@ -85,3 +85,12 @@ def test_no_set_u():
         for n, line in enumerate(open(path, encoding="utf-8"), 1):
             code = line.split("#", 1)[0]
             assert not _re.search(r"\bset\s+-[a-z]*u|set\s+-o\s+nounset", code), f"{path}:{n}: {line.strip()}"
+
+
+@pytest.mark.parametrize("path", BASH_FILES, ids=os.path.basename)
+def test_no_gnu_timeout(path):
+    """macOS has no `timeout` command: use _with_timeout."""
+    import re as _re
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        code = line.split("#", 1)[0]
+        assert not _re.search(r"(^|[;&|(]\s*|\s)timeout\s+[0-9]", code), f"{n}: {line.strip()}"

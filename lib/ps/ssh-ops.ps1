@@ -149,7 +149,7 @@ function Install-SSHKeyOnRemote {
             # -e (password from $env:SSHPASS), never -p: -p puts it in argv, readable via ps (Z2).
             $env:SSHPASS = $DefaultPassword
             try {
-                $RemoteHostName = $PublicKey | sshpass -e ssh -o StrictHostKeyChecking=accept-new $target (ConvertTo-NativeArgument $script:RemoteInstallCommand)
+                $RemoteHostName = $PublicKey | sshpass -e ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $target (ConvertTo-NativeArgument $script:RemoteInstallCommand)
             } finally { Remove-Item Env:SSHPASS -ErrorAction SilentlyContinue }
         } else {
             Write-SSHFence $target
@@ -265,7 +265,7 @@ function Test-SSHConnection {
     } catch { $tcpOk = $false }
 
     if (-not $tcpOk) {
-        Write-Out 'error' "Connection refused: $RemoteHost is not accepting SSH connections on port 22."
+        Write-Out 'error' "Cannot reach $RemoteHost on port 22 (refused, filtered or timed out)."
         if ($ReturnResult) { return $false } else { return }
     }
 

@@ -75,10 +75,12 @@ class Term:
         then SIGKILLs it and sshdd's cleanup never runs (T1 found the leftovers)."""
         import os
         import signal
-        if self.child.isalive():
+        for _ in range(6):            # repeated: one SIGHUP can land just before a $(...) prompt forks
+            if not self.child.isalive():
+                return
             try:
                 os.killpg(os.getpgid(self.child.pid), signal.SIGHUP)
-                self.child.expect(pexpect.EOF, timeout=3)
+                self.child.expect(pexpect.EOF, timeout=0.5)
             except Exception:
                 pass
         if self.child.isalive():

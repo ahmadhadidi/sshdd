@@ -141,13 +141,16 @@ show_main_menu() {
     _menu_cleanup() {
         (( _MENU_CLEANED_UP )) && return 0
         _MENU_CLEANED_UP=1
-        # Background helpers (host probes, spinner) and temp files must not outlive sshdd.
+        # A second signal mid-cleanup ran its "exit" trap and cut cleanup short (temp files left).
+        trap '' HUP INT TERM TSTP
+        # Files first: removing them needs no terminal, which may already be gone (closed window).
+        _destroy_askpass 2>/dev/null || true
+        (( ${#_CLEANUP_PATHS[@]} )) && rm -f "${_CLEANUP_PATHS[@]}" 2>/dev/null
+        # Background helpers (host probes, spinner) must not outlive sshdd.
         # CONT after TERM: after Ctrl+Z they are stopped and would ignore TERM.
         local _job
         for _job in $(jobs -p); do kill "$_job" 2>/dev/null; kill -CONT "$_job" 2>/dev/null; done
         _spin_stop 2>/dev/null || true
-        _destroy_askpass 2>/dev/null || true
-        (( ${#_CLEANUP_PATHS[@]} )) && rm -f "${_CLEANUP_PATHS[@]}" 2>/dev/null
         # Clear the alternate screen before leaving so no content bleeds through,
         # then restore cursor visibility and switch back to the normal screen.
         local _back=''

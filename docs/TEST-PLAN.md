@@ -92,7 +92,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **E2** ✅ symlinked config (bash + PS) · ✅ no `~/.ssh` / no config: prompt waits; Y/Enter creates 700/600, N/Esc declines · ✅ unreadable config: warning bar, no raw errors — `test_environment.py`.
 - **E3** ✅ no perl (python3 fallback for block lookup and edits) · ✅ no curl/unreachable download: one clear message (C2) · 🔨 no `sshpass`.
 - **E4** ✅ `LANG=C`, `TERM=vt100`, `TERM=dumb`, 40×10: start, title box intact, Q quits.
-- **E5** 🔨 unreachable host, wrong password, host key changed, remote without `~/.ssh`: clear message, back to menu.
+- **E5** ✅ unreachable host for I/T/D/Z/N/A: a clear message within ~15 s, then the menu (`test_errors.py`) · ✅ reachability works without GNU `timeout` (macOS) · 🔨 wrong password, host key changed.
 
 ### D — data safety
 - **D1** 🔨 every config edit keeps comments, `Include`, `Match`, `Host *` and other blocks byte-for-byte.
@@ -107,7 +107,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 ### R — remote (CT 213)
 - **R1–R4** ✅ end to end on CT 213 (`test_remote_ops.py`, 01, `test_lxc_connection.py`): generate & install, install, test (authorized / not), delete (others and mode kept), list, promote, append hostname, add config block. Note: the older tests 02–07 only open each screen.
 - **R5** 🔨 password auth and key auth for every remote op.
-- **R6** 🔨 unreachable host / closed port.
+- **R6** ✅ unreachable host: see E5.
 - **R7** ✅ installing a key that's already there doesn't duplicate it; a last line without newline isn't corrupted.
 - **R8** ✅ passphrase-protected key: Test Connection and Append Hostname ask the passphrase and succeed.
 
@@ -162,3 +162,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - `sshpass -p "$password"` put the password in argv, readable by every user via `ps` (sshpass's own manual warns). Fixed: `SSHPASS=… sshpass -e` (bash + PS).
 - Typing a filter after scrolling a long picker drew nothing (scroll offset left past the shorter list). Fixed (bash + PS).
 - `EDITOR="code --wait"` (any editor with arguments) failed the `command -v` check and fell back to nano. Fixed: first word checked, run via `sh -c` like git (bash); split on PS.
+- **macOS has no `timeout` command**: the reachability dots showed every host as unreachable and Test Connection always said "Connection refused" on a stock Mac. The host was also pasted into a `bash -c` string (a crafted HostName ran as code). Fixed: `_with_timeout` in plain bash, host passed as an argument.
+- **No ssh call had a connect timeout**: an unreachable host hung an operation for the system TCP timeout (~2 min) with no message. Fixed: `ssh`/`scp` wrappers with `ConnectTimeout=10` (bash; PS `ssh` function).
+- Exit cleanup could be cut short by a second signal and talked to the (possibly gone) terminal before deleting files; temp files were created via `$(mktemp)`, so a signal during that subshell lost the file's name. Fixed: cleanup ignores further signals and deletes files first; `_mktemp_reg` registers the name before creating the file. Limit: a SIGHUP sent with the terminal still open, just before a prompt subshell forks, is missed by that subshell (a real hang-up also makes its read fail).
+- Append Hostname asked "Add to config anyway? (y/N): N" as a pre-filled text prompt; now the same `[y/N]` question as everywhere else (bash + PS).
