@@ -51,7 +51,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **U1** ✅ config getters: case, tabs, `Key=value` (bash + PS).
 - **U2** ✅ `_replace_host_block` with `$ @ \ / ' " `…`` in the block, perl and python3 paths; delete keeps other blocks byte-for-byte — `test_units.py`.
 - **U3** ✅ `_sq` round-trips random text through `eval` (hypothesis).
-- **U4** ✅ `_visual_width` for ASCII, wide emoji, emoji + VS16, wide symbols.
+- **U4** ✅ `_visual_width` for ASCII, wide emoji, emoji + VS16, wide symbols; every app label matches `wcwidth`.
 - **U5** ✅ `_hint_bar` exactly fills widths 1–300, keeps `Q Quit` (hypothesis).
 - **U6** ✅ host selection: typed alias, unique filter, digits shorthand, unknown text (bash + PS).
 - **U7** ✅ `get_hosts_using_key`, `get_identity_files_for_host` with `~`, `$HOME`, quotes, spaces, `=`, look-alike names.
@@ -63,20 +63,20 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **H3** 🔨 random text into every free-text prompt: no crash, no shell evaluation, screen stays inside its box.
 
 ### S — screens (pyte)
-- **S1** 🔨 every screen at 80×24, 100×40, 200×60: no line wider than the terminal, no wrap, title box intact.
+- **S1** ✅ every screen at 80×24, 100×40, 200×60: title box intact, all borders in one column — `test_screens.py`.
 - **S2** ✅ main menu bars share the reverse-video background · ✅ F5 title box · 🔨 all op screens use the same box.
 - **S3** 🔨 spinner visible during host probes and remote ops; gone afterwards.
-- **S4** 🔨 every screen shows a hint bar listing exactly the keys it handles.
+- **S4** ✅ every screen shows key hints · 🔨 hints match the keys each screen really handles.
 - **S5** 🔨 every op ends with a result line and "Press any key", then the menu.
 - **S6** 🔨 defaults shown pre-filled (`--user`, `--subnet`, `--comment-suffix`).
 - **S7** 🔨 emoji rows align (icon column) at every width.
-- **S8** 🔨 `?` help and F1 open, page, and close with Q/Esc.
-- **S9** 🔨 main menu with 0, 1, 50, 200 configured hosts: scrolling, selection visible.
+- **S8** ✅ F1 opens and closes · 🔨 `?` help paging.
+- **S9** ✅ menu scrolls at 24 rows with the selection always visible · 🔨 pickers with 50/200 hosts.
 
 ### K — keyboard
 - **K1** ✅ Esc cancels at the first and later prompts (G, W, T) · 🔨 every prompt of every op.
-- **K2** ✅ one Q quits from the main menu · 🔨 Q never quits from inside an op.
-- **K3** 🔨 every hotkey and its lowercase; unknown keys ignored.
+- **K2** ✅ one Q quits from the main menu; every screen returns to the menu instead of quitting.
+- **K3** ✅ every hotkey and its lowercase; unknown keys (letters, F12, Ctrl+Up) ignored; E runs `$EDITOR` on the config.
 - **K4** ✅ arrow latency < 80 ms; held-down arrows never dropped · 🔨 same in pickers and pagers.
 - **K5** 🔨 Home/End/PgUp/PgDn wherever a list or pager is shown.
 - **K6** 🔨 type-to-filter, Backspace, Ctrl+W in pickers and text prompts; paste of 2 KB text.
@@ -145,3 +145,4 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Deleting a host left its trailing newline, and the removal screen then rewrote the whole config with `sed` (trailing spaces stripped, blank lines squeezed in every block). Fixed: the block goes with its newline; no whole-file rewrite.
 - Parsers vs OpenSSH (H1): a repeated HostName/User showed the last value (OpenSSH uses the first); lowercase `host` lines weren't found by `_get_host_block`; alias `a` matched `Host a-b`; `get_hosts_using_key k2` matched `xk2`. PS: the alias was pasted into the regex unescaped. Fixed in bash and PS (`Get-HostBlockPattern`).
 - `_write_key_pair` stripped only one trailing newline from a pasted key.
+- `_visual_width` counted text-presentation emoji (🗑 🗝 🏚 👁, Unicode width 1) as 2 columns: the title box's right border was one column off on Delete Remote/Local, List Keys, Remove Host and View Config (screenshot `handoff/view-config-before-after.png`). Likely the old todo1 note "View SSH Config box looks broken".

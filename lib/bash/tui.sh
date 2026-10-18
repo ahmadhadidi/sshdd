@@ -49,6 +49,14 @@ _visual_width() {
     for sym in '✨' '➕' '❌'; do
         t="${s//$sym/}"; adj=$(( adj + ${#s} - ${#t} )); s="$t"
     done
+    # Text-presentation emoji (Unicode width 1, like pyte/wcwidth and terminals): 🗑 🗝 🏚 👁 are
+    # 4-byte but only 1 column unless followed by VS16 (then 2). Counted 2 before, which put the
+    # title box's right border one column off on those screens. Add new 1-wide icons here.
+    local _t
+    for sym in '🗑' '🗝' '🏚' '👁'; do
+        _t="${str//$sym$_vs16/}"; t="${_t//$sym/}"
+        adj=$(( adj - (${#_t} - ${#t}) ))
+    done
     printf '%d' $(( n + adj ))
 }
 

@@ -78,7 +78,8 @@ def test_sq_round_trips(value):
 # ── U4: _visual_width ─────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("text,cols", [
-    ("abc", 3), ("🔑  Key", 7), ("🗑️  Del", 7), ("✨ x", 4), ("❌", 2), ("── x", 4), ("", 0),
+    ("abc", 3), ("🔑  Key", 7), ("🗑️  Del", 7), ("🗑   Del", 7), ("👁  View", 7), ("🗝", 1), ("🏚x", 2),
+    ("✨ x", 4), ("❌", 2), ("── x", 4), ("", 0),
 ])
 def test_visual_width(text, cols):
     assert bash('_visual_width "$T"', env={"T": text}).stdout.strip() == str(cols)
@@ -122,3 +123,22 @@ def test_write_key_pair_modes_and_newline(tmp_path):
               "PUB": "ssh-ed25519 AAAA c\n\n\n", "SSH_DIR": str(tmp_path)})
     assert stat.S_IMODE(priv.stat().st_mode) == 0o600
     assert pub.read_text() == "ssh-ed25519 AAAA c\n"
+
+
+def test_visual_width_matches_wcwidth_for_every_app_label():
+    """U4: every quoted label with an emoji in lib/bash has the width wcwidth (terminals' table) gives."""
+    import re
+    import wcwidth
+    labels = set()
+    for f in sorted(os.listdir(f"{ROOT}/lib/bash")):
+        if f.endswith(".sh"):
+            for m in re.finditer(r'"([^"\n$`\\]*[\U0001F000-\U0001FFFF☀-➿][^"\n$`\\]*)"',
+                                 open(f"{ROOT}/lib/bash/{f}", encoding="utf-8").read()):
+                labels.add(m.group(1))
+    assert len(labels) > 15
+    script = 'while IFS= read -r l; do _visual_width "$l"; echo; done'
+    r = subprocess.run([BASH32, "-c", f"{SOURCE}\n{script}"], input="\n".join(sorted(labels)) + "\n",
+                       capture_output=True, text=True, timeout=60)
+    got = dict(zip(sorted(labels), map(int, r.stdout.split())))
+    wrong = {l: (got[l], wcwidth.wcswidth(l)) for l in labels if got[l] != wcwidth.wcswidth(l)}
+    assert not wrong, wrong
