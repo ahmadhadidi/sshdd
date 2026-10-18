@@ -60,12 +60,12 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 ### H — property tests
 - **H1** ✅ random valid configs: bash and PS host lists match `ssh -G` — `test_properties.py`.
 - **H2** ✅ random Host-block replacement: other blocks resolve unchanged with `ssh -G`.
-- **H3** 🔨 random text into every free-text prompt: no crash, no shell evaluation, screen stays inside its box.
+- **H3** ✅ random text (control chars, unicode, shell syntax, `$(touch canary)`) into the key-comment and manual-host prompts: no crash, nothing executed — `test_robustness.py` · 🔨 the other prompts.
 
 ### S — screens (pyte)
 - **S1** ✅ every screen at 80×24, 100×40, 200×60: title box intact, all borders in one column — `test_screens.py`.
 - **S2** ✅ main menu bars share the reverse-video background · ✅ F5 title box · 🔨 all op screens use the same box.
-- **S3** 🔨 spinner visible during host probes and remote ops; gone afterwards.
+- **S3** ✅ spinner shown during host probes and gone afterwards · 🔨 remote ops.
 - **S4** ✅ every screen shows key hints · 🔨 hints match the keys each screen really handles.
 - **S5** ✅ errors stay on screen behind "Press any key" (`_OP_ERROR`) · 🔨 every op's result line.
 - **S6** ✅ `--user`, `--subnet`, `--comment-suffix` pre-filled where they apply — `test_ux.py`.
@@ -79,7 +79,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **K3** ✅ every hotkey and its lowercase; unknown keys (letters, F12, Ctrl+Up) ignored; E runs `$EDITOR` on the config.
 - **K4** ✅ arrow latency < 80 ms; held-down arrows never dropped · 🔨 same in pickers and pagers.
 - **K5** ✅ View Config pager: PgDn, End, Home · 🔨 key list, help.
-- **K6** ✅ Ctrl+U clears a pre-filled prompt (added; readline convention) · ✅ Backspace / Ctrl+W (older tests) · 🔨 paste of 2 KB text.
+- **K6** ✅ Ctrl+U clears a pre-filled prompt · ✅ Backspace / Ctrl+W · ✅ 800-char paste arrives whole · limit: ~6 ms per typed/pasted character (bash `read -n1` per key), a 2 KB paste takes ~13 s; ssh-keygen keeps 1023 chars of a comment · ✅ Ctrl+S doesn't freeze.
 
 ### X — termination and terminal state
 - **X1** ✅ Ctrl+C, Ctrl+Z, SIGTERM, SIGHUP at the menu and during host probes.
@@ -92,7 +92,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **E2** ✅ symlinked config (bash + PS) · ✅ no `~/.ssh` / no config: prompt waits; Y/Enter creates 700/600, N/Esc declines · ✅ unreadable config: warning bar, no raw errors — `test_environment.py`.
 - **E3** ✅ no perl (python3 fallback for block lookup and edits) · ✅ no curl/unreachable download: one clear message (C2) · 🔨 no `sshpass`.
 - **E4** ✅ `LANG=C`, `TERM=vt100`, `TERM=dumb`, 40×10: start, title box intact, Q quits.
-- **E5** ✅ unreachable host for I/T/D/Z/N/A: a clear message within ~15 s, then the menu (`test_errors.py`) · ✅ reachability works without GNU `timeout` (macOS) · 🔨 wrong password, host key changed.
+- **E5** ✅ unreachable host for I/T/D/Z/N/A: a clear message within ~15 s, then the menu (`test_errors.py`) · ✅ reachability works without GNU `timeout` (macOS) · ✅ wrong password and changed host key say why (CT 213).
 
 ### D — data safety
 - **D1** 🔨 every config edit keeps comments, `Include`, `Match`, `Host *` and other blocks byte-for-byte.
@@ -174,3 +174,6 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Conf Defaults key: bash F5 (F10 is taken by GNOME Terminal), PS F10.
 - Hint bars list different keys (PS: Home/End, F1 Help, F10 Conf, V View, E Edit).
 - PS screens use a teal title bar between rules; bash uses a box.
+- **Ctrl+S froze the app** (terminal flow control): output stopped until Ctrl+Q, so it looked hung. Found by the H3 fuzzer. Fixed: `stty -ixon` while sshdd runs (restored on exit).
+- Every typed character forked a process (`$(printf '%d' "'$k")` printable check), so a 2 KB paste took several seconds. Fixed: `[[ $k != [[:cntrl:]] ]]`.
+- SSH failures said only "Failed …": the reason ssh printed (host key changed, permission denied, timeout) was captured and dropped. Fixed: `_ssh_why` prints it.

@@ -144,7 +144,7 @@ read_colored_input() {
                 ;;
             *)
                 # Accept printable single-byte characters only
-                if [[ ${#k} -eq 1 ]] && (( $(printf '%d' "'$k" 2>/dev/null || echo 0) >= 32 )); then
+                if [[ ${#k} -eq 1 && $k != [[:cntrl:]] ]]; then   # no fork per key: a 2 KB paste took seconds
                     local rest="${buf:$cur}"
                     buf="${buf:0:$cur}${k}${rest}"
                     (( cur++ ))
@@ -260,7 +260,7 @@ read_host_with_default() {
                 fi
                 ;;
             *)
-                if [[ ${#k} -eq 1 ]] && (( $(printf '%d' "'$k" 2>/dev/null || echo 0) >= 32 )); then
+                if [[ ${#k} -eq 1 && $k != [[:cntrl:]] ]]; then   # no fork per key: a 2 KB paste took seconds
                     local rest="${buf:$cur}"
                     buf="${buf:0:$cur}${k}${rest}"
                     (( cur++ ))

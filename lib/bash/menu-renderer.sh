@@ -18,7 +18,7 @@ _invoke_choice() {
     # Restore cooked terminal mode for operations that use normal read
     local _stty_saved_inner
     _stty_saved_inner=$(stty -g 2>/dev/null) || true
-    stty sane 2>/dev/null || true
+    stty sane -ixon 2>/dev/null || true
 
     _setup_askpass
     local skip_wait=0
@@ -135,7 +135,8 @@ show_main_menu() {
     # restore it when leaving the alternate screen (TODO #9: prompt in an odd place in herdr).
     _cursor_pos; _ENTRY_ROW=$_CUR_ROW _ENTRY_COL=$_CUR_COL
     printf '\e[?1049h\e[?25l'
-    stty -echo -icanon min 0 time 1 2>/dev/null || true
+    # -ixon: Ctrl+S (XOFF) froze all output, so the app looked hung until Ctrl+Q (plan H3).
+    stty -echo -icanon -ixon min 0 time 1 2>/dev/null || true
 
     _MENU_CLEANED_UP=0
     _menu_cleanup() {
@@ -344,7 +345,7 @@ show_main_menu() {
                 _invoke_choice "10" "Help: Best Practices"
                 ;;
             '?')
-                stty sane 2>/dev/null || true
+                stty sane -ixon 2>/dev/null || true
                 printf '\e[?25h'
                 _show_menu_help
                 stty -echo -icanon min 0 time 1 2>/dev/null || true
@@ -353,7 +354,7 @@ show_main_menu() {
             "$KEY_F2_A"|"$KEY_F2_B")
                 if (( _CONFIG_MISSING )); then
                     _term_size
-                    stty sane 2>/dev/null || true
+                    stty sane -ixon 2>/dev/null || true
                     printf '\e[?25h'
                     _do_create_config
                     printf '\n  \e[90mPress any key to continue...\e[0m'

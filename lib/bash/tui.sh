@@ -569,7 +569,7 @@ select_from_list() {
                 return 1
                 ;;
             *)
-                if [[ ${#k} -eq 1 && $(printf '%d' "'$k") -ge 32 ]] 2>/dev/null; then
+                if [[ ${#k} -eq 1 && $k != [[:cntrl:]] ]]; then   # no fork per key (pastes)
                     filter+="$k"
                     sel=-1
                 fi

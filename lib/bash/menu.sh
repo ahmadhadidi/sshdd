@@ -127,7 +127,8 @@ _menu_delete_remote_key() {      # choice 3
     local raw_keys
     raw_keys=$(ssh "$target" "cat ~/.ssh/authorized_keys 2>/dev/null" 2>&1) || {
         _ssh_fence_close
-        printf '  \e[31mCould not connect to %s.\e[0m\n' "$target"
+        _out error 'Could not connect to %s.' "$target"
+        _ssh_why "$raw_keys"
         return 0
     }
     _ssh_fence_close
@@ -376,7 +377,8 @@ _menu_list_authorized_keys() {   # choice 16
     local keys
     keys=$(ssh "$target" "cat ~/.ssh/authorized_keys 2>/dev/null" 2>&1) || {
         _ssh_fence_close
-        printf '  \e[31mFailed to fetch authorized_keys.\e[0m\n'
+        _out error 'Failed to fetch authorized_keys.'
+        _ssh_why "$keys"
         return 0
     }
     _ssh_fence_close

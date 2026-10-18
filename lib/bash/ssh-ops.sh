@@ -62,6 +62,7 @@ install_ssh_key_on_remote() {
         _spin_stop
         if (( _ik_rc != 0 )); then
             _out error 'Failed to inject SSH key. Check network, credentials, or host status.'
+            _ssh_why "$remote_hostname"
             _dbg "install_ssh_key_on_remote: sshpass failed"
             return 0
         fi
@@ -71,6 +72,7 @@ install_ssh_key_on_remote() {
             ssh "$target" "$_REMOTE_INSTALL_CMD" 2>&1) || {
             _ssh_fence_close
             _out error 'Failed to inject SSH key. Check network, credentials, or host status.'
+            _ssh_why "$remote_hostname"
             _dbg "install_ssh_key_on_remote: ssh failed"
             return 0
         }

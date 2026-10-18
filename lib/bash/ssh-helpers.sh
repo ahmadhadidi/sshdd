@@ -338,6 +338,16 @@ _valid_key_name() {
 # onto the last one), and creates ~/.ssh 700 / authorized_keys 600 when they don't exist. Prints hostname.
 _REMOTE_INSTALL_CMD='umask 077; mkdir -p .ssh && touch .ssh/authorized_keys && k=$(tr -d '\''\r'\'') && { [ ! -s .ssh/authorized_keys ] || [ -z "$(tail -c1 .ssh/authorized_keys)" ] || echo >> .ssh/authorized_keys; } && { grep -qxF "$k" .ssh/authorized_keys || printf '\''%s\n'\'' "$k" >> .ssh/authorized_keys; } && hostname'
 
+# Print why an ssh call failed, from its captured output, so "Failed …" says what to fix
+# (host key changed, wrong password, unreachable…). It used to be swallowed (plan E5).
+_ssh_why() {
+    local line
+    line=$(printf '%s\n' "$1" | grep -m1 -iE 'host key verification failed|identification has changed|permission denied|could not resolve|connection refused|timed out|no route to host|network is unreachable|too many authentication failures')
+    [[ -z $line ]] && line=$(printf '%s\n' "$1" | grep -v '^[[:space:]]*$' | tail -n 1)
+    [[ -n $line ]] && _out dim 'ssh: %s' "${line%$'\r'}"
+    return 0
+}
+
 # ─── Local filesystem helpers ─────────────────────────────────────────────────
 
 # Ensure ~/.ssh exists with correct permissions.
