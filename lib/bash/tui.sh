@@ -89,7 +89,7 @@ _esc_drain() {
     local _restore_stty=${1:-} _c _n=0
     _ESC_TAIL=''
     stty min 0 time 1 2>/dev/null || true
-    _c=$(dd bs=1 count=1 2>/dev/null)
+    _c=$(trap '' TSTP INT; dd bs=1 count=1 2>/dev/null)
     if [[ $_c == '[' || $_c == 'O' ]]; then
         _ESC_TAIL=$_c
         while (( _n++ < 8 )) && IFS= read -r -n1 _c 2>/dev/null; do
@@ -103,18 +103,21 @@ _esc_drain() {
 }
 
 # Ask the terminal where the cursor is (DSR 6: answer is ESC [ row ; col R).
-# Sets _CUR_ROW/_CUR_COL; both empty if the terminal doesn't answer within 100 ms.
+# Sets _CUR_ROW/_CUR_COL; both empty if the terminal doesn't answer within 500 ms.
+# 500 ms, not 100: an answer that arrives after we stop waiting is read as typed keys by the
+# next prompt (over a slow SSH link it answered the "Create ~/.ssh/config? [Y/n]" prompt).
+# A normal terminal answers in microseconds; only one that never answers pays the wait.
 _cursor_pos() {
     local _st _r=''
     _CUR_ROW='' _CUR_COL=''
     _st=$(stty -g 2>/dev/null) || return 0
-    stty -echo -icanon min 0 time 1 2>/dev/null || true
+    stty -echo -icanon min 0 time 5 2>/dev/null || true
     printf '\e[6n' >/dev/tty 2>/dev/null
     # dd, not read -d R: bash's read -d forces VMIN=1 and would hang forever on a
-    # terminal that never answers. dd's read returns empty after 100 ms (VTIME).
+    # terminal that never answers. dd's read returns empty after 500 ms (VTIME).
     local _c _i
     for (( _i = 0; _i < 4; _i++ )); do
-        _c=$(dd bs=32 count=1 </dev/tty 2>/dev/null)
+        _c=$(trap '' TSTP INT; dd bs=32 count=1 </dev/tty 2>/dev/null)
         [[ -z $_c ]] && break
         _r+=$_c
         [[ $_r == *R* ]] && break
@@ -127,62 +130,71 @@ _cursor_pos() {
     fi
 }
 
-# Read one keypress (blocking). Sets global KEY.
+# One byte from the terminal within the current VTIME window (caller holds stty min 0 time 1),
+# into _BYTE; returns 1 if none arrived. dd, not bash's read -n1 (which forces VMIN=1 and blocks
+# until a key, so loops couldn't redraw on resize: plan X4). The "x" keeps a newline byte,
+# which $(...) would strip.
+_poll_byte() {
+    # dd ignores Ctrl+Z/Ctrl+C: they stop/kill the whole foreground group, and a stopped dd would
+    # hang sshdd. bash still gets them; its traps run when this ≤100 ms read returns.
+    _BYTE=$(trap '' TSTP INT; dd bs=1 count=1 2>/dev/null; echo x)
+    _BYTE=${_BYTE%x}
+    [[ -n $_BYTE ]]
+}
+
+# Wait for one key (caller holds stty -echo -icanon min 0 time 1). Sets KEY; KEY=$KEY_RESIZE when
+# the terminal size changed from TERM_H/TERM_W meanwhile, so the caller's loop redraws.
+_wait_key() {
+    local _sz
+    until _poll_byte; do
+        _sz=$(stty size 2>/dev/null)
+        if [[ -n $_sz && -n ${TERM_W:-} && $_sz != "$TERM_H $TERM_W" ]]; then
+            # Update the globals here: a loop that doesn't re-read the size would otherwise
+            # get RESIZE every 100 ms and redraw forever.
+            TERM_H=${_sz%% *} TERM_W=${_sz##* }
+            KEY=$KEY_RESIZE
+            return 0
+        fi
+    done
+    KEY=$_BYTE
+    [[ $KEY == $'\r' ]] && KEY=$'\n'
+    if [[ $KEY == $'\x1b' ]]; then
+        _esc_drain "min 0 time 1"
+        KEY+=$_ESC_TAIL
+    fi
+}
+
+# Read one keypress (blocking, manages its own stty). Sets global KEY (KEY_RESIZE on resize).
 # Handles arrow keys and multi-byte escape sequences including 2-digit F-keys
 # (e.g. F5 = \x1b[15~, F10 = \x1b[21~).
 _read_key() {
-    local k
     local _st
     _st=$(stty -g 2>/dev/null) || true
-    stty -echo -icanon min 1 time 0 2>/dev/null || true
-    IFS= read -r -n1 k 2>/dev/null || k=''
-    # read -n1 consumes the newline terminator without including it in $k.
-    # An empty result after a successful read means Enter was pressed.
-    [[ -z $k ]] && k=$'\n'
-    if [[ $k == $'\x1b' ]]; then
-        # No restore arg: stty "$_st" at end of this function restores everything.
-        _esc_drain ""
-        k="${k}${_ESC_TAIL}"
-    fi
+    stty -echo -icanon min 0 time 1 2>/dev/null || true
+    _wait_key
     stty "$_st" 2>/dev/null || true
-    KEY="$k"
 }
 
-# Non-blocking read: relies on stty VTIME (min 0 time 1 = 100 ms kernel timeout)
-# set by show_main_menu. Returns 0 if key read, 1 on timeout.
-# Does NOT use bash's -t flag for the initial read — unreliable on bash 3.2 / macOS.
-# Caller must already hold raw mode (-echo -icanon min 0 time 1).
+# Non-blocking read for the main menu's poll loop (caller holds -echo -icanon min 0 time 1).
+# Returns 0 with KEY set if a key arrived within 100 ms, 1 otherwise (the loop then checks size).
 _read_key_nb() {
-    local k
-    # No -t: timeout comes from stty VTIME=1 (100ms). A 0-byte kernel return
-    # is seen as EOF by bash's read builtin, which returns exit code 1.
-    IFS= read -r -n1 k 2>/dev/null || {
+    if ! _poll_byte; then
         KEY=''
         return 1
-    }
-    [[ -z $k ]] && k=$'\n'
-    if [[ $k == $'\x1b' ]]; then
-        # Restore to poll-loop mode after drain (bash 3/4 path changes stty).
-        _esc_drain "min 0 time 1"
-        k="${k}${_ESC_TAIL}"
     fi
-    KEY="$k"
+    KEY=$_BYTE
+    [[ $KEY == $'\r' ]] && KEY=$'\n'
+    if [[ $KEY == $'\x1b' ]]; then
+        _esc_drain "min 0 time 1"
+        KEY+=$_ESC_TAIL
+    fi
     return 0
 }
 
-# Like _read_key but WITHOUT stty save/restore.
-# Caller must already hold raw mode (-echo -icanon min 1 time 0).
-# Eliminates 2 subprocess forks per keypress in tight interactive loops.
+# Like _read_key but WITHOUT stty save/restore (2 forks fewer per key).
+# Caller must already hold raw mode (-echo -icanon min 0 time 1).
 _read_key_raw() {
-    local k
-    IFS= read -r -n1 k 2>/dev/null || k=''
-    [[ -z $k ]] && k=$'\n'
-    if [[ $k == $'\x1b' ]]; then
-        # Restore caller's mode after drain (bash 3/4 path changes stty).
-        _esc_drain "min 1 time 0"
-        k="${k}${_ESC_TAIL}"
-    fi
-    KEY="$k"
+    _wait_key
 }
 
 # Key constants
@@ -206,6 +218,7 @@ readonly KEY_DEL=$'\x1b[3~'
 readonly KEY_ENTER=$'\r'
 readonly KEY_ENTER2=$'\n'
 readonly KEY_ESC=$'\x1b'
+readonly KEY_RESIZE='<resize>'   # pseudo-key from _wait_key: terminal size changed, redraw
 readonly KEY_BACKSPACE=$'\x7f'
 readonly KEY_BACKSPACE2=$'\x08'
 
@@ -300,7 +313,7 @@ select_multi_from_list() {
 
     local _sml_stty
     _sml_stty=$(stty -g 2>/dev/null) || true
-    stty -echo -icanon min 1 time 0 2>/dev/null || true
+    stty -echo -icanon min 0 time 1 2>/dev/null || true   # _read_key_raw polls (resize)
 
     _term_size
     local start_row=$(( 8 + ${_SFL_BANNER_ROWS:-0} ))
@@ -419,7 +432,7 @@ select_from_list() {
     # Hold raw mode for the full widget so arrow keys are never echoed between reads.
     local _sfl_stty
     _sfl_stty=$(stty -g 2>/dev/null) || true
-    stty -echo -icanon min 1 time 0 2>/dev/null || true
+    stty -echo -icanon min 0 time 1 2>/dev/null || true   # _read_key_raw polls (resize)
 
     _term_size
     local start_row=$(( 8 + ${_SFL_BANNER_ROWS:-0} ))

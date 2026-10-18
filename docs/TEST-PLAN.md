@@ -85,13 +85,13 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **X1** ✅ Ctrl+C, Ctrl+Z, SIGTERM, SIGHUP at the menu and during host probes.
 - **X2** 🔨 same during ssh, ssh-keygen, pager, conf editor, `$EDITOR`.
 - **X3** ✅ shell prompt position after exit in tmux and herdr (`test_exit_cursor.py`), and startup when the terminal ignores the cursor query — TODO #9.
-- **X4** 🔨 SIGWINCH (resize) on every screen: full redraw, nothing left over.
+- **X4** ✅ resize redraws the menu, key list, View Config, Conf Defaults and pickers (shrink and grow) · limit: an op's title box above a picker isn't redrawn.
 
 ### E — environment and errors
 - **E1** ✅ new key name validation (#4).
-- **E2** ✅ config is a symlink: edits reach the target, link and mode kept (bash + PS) · 🔨 no `~/.ssh`, no config, unreadable config.
-- **E3** 🔨 no `perl`, no `sshpass`, no `curl` (cloud run message).
-- **E4** 🔨 `LANG=C`, `TERM=vt100`, `TERM=dumb`, 40×10 terminal: degrade without garbage.
+- **E2** ✅ symlinked config (bash + PS) · ✅ no `~/.ssh` / no config: prompt waits; Y/Enter creates 700/600, N/Esc declines · ✅ unreadable config: warning bar, no raw errors — `test_environment.py`.
+- **E3** ✅ no perl (python3 fallback for block lookup and edits) · ✅ no curl/unreachable download: one clear message (C2) · 🔨 no `sshpass`.
+- **E4** ✅ `LANG=C`, `TERM=vt100`, `TERM=dumb`, 40×10: start, title box intact, Q quits.
 - **E5** 🔨 unreachable host, wrong password, host key changed, remote without `~/.ssh`: clear message, back to menu.
 
 ### D — data safety
@@ -113,7 +113,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### C — cloud
 - **C1** ✅ cloud loader runs clean from an HTTP copy of the repo.
-- **C2** 🔨 download failure: one clear message, exit 1.
+- **C2** ✅ download failure: one clear message, exit 1.
 
 ### P — parity and platforms
 - **P1** 🔨 PowerShell TUI driven by pexpect + pyte under `pwsh` on Linux: same screens and keys as bash (S, K tests parametrised by implementation).
@@ -148,3 +148,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - `_visual_width` counted text-presentation emoji (🗑 🗝 🏚 👁, Unicode width 1) as 2 columns: the title box's right border was one column off on Delete Remote/Local, List Keys, Remove Host and View Config (screenshot `handoff/view-config-before-after.png`). Likely the old todo1 note "View SSH Config box looks broken".
 - Bash config edits used `perl -i`, which replaces a symlinked config (dotfile managers) with a plain file; the real config stopped getting edits. Fixed: write through the file.
 - PS wrote files with a UTF-8 BOM (`WriteAllText(…UTF8)` always; `Set-Content -Encoding UTF8` on Windows PowerShell 5.1). OpenSSH rejects a BOM config entirely (`Bad configuration option: \357\273\277host`, every connection fails) and a BOM private key (`error in libcrypto`), checked with OpenSSH here; Win32-OpenSSH not verified. Imported keys were also mode 664 on macOS/Linux pwsh (ssh refuses them), and `-replace` treated `$…` in a config block as substitutions. Fixed: `Write-TextFile` (no BOM, path resolved by PowerShell), chmod 600, literal `.Replace`.
+- The missing-config prompt (`Create ~/.ssh/config now? [Y/n]`) used `read` in the menu's raw mode (100 ms timeout): it returned empty at once and the default Y created the file before anyone could answer. Fixed: waits for one key.
+- An unreadable config printed raw `awk: cannot open … Permission denied` and every list was silently empty. Fixed: parsers skip it; the menu shows a warning with the chmod fix.
+- Without perl, `_get_host_block` returned nothing, so every config edit did nothing. Fixed: python3 fallback.
+- Every key loop blocked in `read -n1` (forces VMIN=1), so nothing redrew on terminal resize until a key was pressed. Fixed: dd-based polling (`_wait_key`, `KEY_RESIZE`); dd ignores Ctrl+Z/C so a stopped dd can't hang sshdd.

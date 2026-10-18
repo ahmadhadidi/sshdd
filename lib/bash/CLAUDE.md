@@ -192,15 +192,14 @@ The bash implementation targets bash 3.2 exclusively (macOS system shell, GPL v2
 - **Associative maps with string keys** — use two parallel `local -a` arrays (`_umap_keys` / `_umap_vals`) with O(n) linear search. Key counts in this app are always < 20 so this is fast enough.
 - **Key inventory set-union** — replace `"${!assoc[@]}"` iteration with a `{ list_source_a; list_source_b; } | sort -u` pipeline fed into a `while read` loop.
 
-**Non-blocking terminal reads — the `_read_key_nb` contract:**
+**Terminal reads — the contract (TODO #11, plan X4):**
 
-bash 3.2 does not reliably implement `read -t 0.05` for poll-style non-blocking reads. Use stty VTIME instead:
-
-- `stty -echo -icanon min 0 time 1` — kernel returns 0 bytes after 100 ms with no input; bash `read` sees a 0-byte read as EOF and returns exit code 1. This is the correct "timeout, no key" signal.
-- `_read_key_nb` drops `-t` from the initial `read` call entirely; timeout is owned by the kernel.
-- After reading an ESC byte, call `_esc_drain`. Never read the byte after ESC with bash's `read -r -n1` (it forces VMIN=1 and blocks forever on a bare Esc, Linux bash 3.2), and never with `read -r` without `-n` (it slurps every waiting byte, so held-down arrows merged into one unknown key and were dropped, then still waited 100 ms; arrows took ~126 ms). `dd bs=1 count=1` honours VTIME. Tests: `tests/test_keys.py`.
-- Do NOT use `min 0 time 0` as the main loop stty setting — it makes the fd look permanently readable to `select()`, which breaks bash's own `-t` implementation and causes the poll loop to spin or freeze.
-- `min 1 time 0` (block until 1 char) is correct for `_read_key` and `_read_key_raw` (used in blocking contexts), but wrong for the non-blocking poll loop.
+- **Never read a key with bash's `read -n1` / `read -d`.** On a tty they force VMIN=1 and block until a byte arrives, ignoring `stty … time N`: a bare-Esc check or a poll loop can then hang, and loops can't redraw on resize.
+- **`_poll_byte`** reads one byte with `dd` under `stty -echo -icanon min 0 time 1` (100 ms): returns 1 on timeout. `dd` runs with TSTP/INT ignored (a stopped `dd` would hang sshdd on Ctrl+Z; bash still gets the signal and its trap runs when the read returns). The `x` suffix keeps a newline byte through `$(…)`.
+- **`_wait_key`** polls until a key arrives; when `stty size` no longer matches `TERM_H TERM_W` it updates them and returns `KEY=$KEY_RESIZE`. Every interactive loop handles `KEY_RESIZE` by redrawing (loops that redraw each iteration need nothing).
+- **`_read_key`** (own stty), **`_read_key_raw`** (caller holds `min 0 time 1`) and **`_read_key_nb`** (one 100 ms window, main menu poll) are built on these. All call `_esc_drain` after ESC.
+- Interactive loops hold `stty -echo -icanon min 0 time 1` (not `min 1 time 0`).
+- **Limit:** a picker on an operation screen redraws its own rows on resize; the operation's title box above it is transcript and isn't redrawn.
 - **SSH test isolation.** `-F /dev/null` bypasses `~/.ssh/config` entirely; `-o IdentitiesOnly=yes` alone is insufficient because it still allows keys from the matching config block.
 - **Passphrase-protected keys.** Never use `-o BatchMode=yes` when testing keys — it blocks passphrase prompts. Use `-o PreferredAuthentications=publickey` to restrict to key auth without silencing prompts.
 - **Shared HostName.** Several Host blocks may point at one IP. `resolve_ssh_target` prefers `_REMOTE_ALIAS` when the address is `_REMOTE_HOST`; anything that maps an IP back to an alias must do the same, never take the first match.

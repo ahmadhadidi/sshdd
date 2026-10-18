@@ -12,7 +12,7 @@ _SSH_CONFIG_SH_LOADED=1
 
 # Print "alias|hostname|user" for every non-wildcard Host block in ~/.ssh/config.
 get_configured_ssh_hosts() {
-    [[ -f "$SSH_CONFIG" ]] || return 0
+    [[ -r "$SSH_CONFIG" ]] || return 0
     awk '
         { l=$0; sub(/^[ \t]+/, "", l); split(l, a, /[ \t=]+/); k=tolower(a[1]) }
         k == "host" {
@@ -50,19 +50,28 @@ get_available_ssh_keys() {
 _get_host_block() {
     local alias="$1"
     _HOST_BLOCK=""
-    [[ -f "$SSH_CONFIG" ]] || return 0
+    [[ -r "$SSH_CONFIG" ]] || return 0
     # Keyword case-insensitive, any indent, "Host a" or "Host=a" (ssh_config syntax); the alias must
     # end at whitespace or end of line (\b let "a" match "Host a-b"). Found by plan H1/H2.
     _HOST_BLOCK=$(_SSHDD_ALIAS="$alias" perl -0777 -ne \
         'my $a = quotemeta $ENV{_SSHDD_ALIAS};
          /(^[ \t]*(?i:host)[ \t]*[ \t=][ \t]*$a(?=[ \t]|$).*?)(?=^[ \t]*(?i:host)[ \t]*[ \t=]|\z)/ms and print $1' \
         "$SSH_CONFIG" 2>/dev/null || true)
+    # No perl (minimal Linux): the same pattern in python3 (plan E3).
+    if [[ -z $_HOST_BLOCK ]] && ! command -v perl &>/dev/null && command -v python3 &>/dev/null; then
+        _HOST_BLOCK=$(_SSHDD_ALIAS="$alias" python3 -c '
+import os, re, sys
+a = re.escape(os.environ["_SSHDD_ALIAS"]); kw = r"^[ \t]*(?i:host)[ \t]*[ \t=][ \t]*"
+m = re.search(r"(" + kw + a + r"(?=[ \t]|$).*?)(?=" + kw + r"|\Z)", open(sys.argv[1]).read(), re.M | re.S)
+sys.stdout.write(m.group(1) if m else "")
+' "$SSH_CONFIG" 2>/dev/null || true)
+    fi
 }
 
 # Print IdentityFile values for a given host alias or IP address.
 get_identity_files_for_host() {
     local target="$1"
-    [[ -z $target || ! -f "$SSH_CONFIG" ]] && return 0
+    [[ -z $target || ! -r "$SSH_CONFIG" ]] && return 0
 
     _get_host_block "$target"
     local block="$_HOST_BLOCK"
@@ -87,7 +96,7 @@ get_identity_files_for_host() {
 # Print "alias|hostname|user" for hosts whose config block references KeyName as IdentityFile.
 get_hosts_using_key() {
     local keyname="$1"
-    [[ -f "$SSH_CONFIG" ]] || return 0
+    [[ -r "$SSH_CONFIG" ]] || return 0
     local esc; esc=$(_regex_escape "$keyname")
     while IFS='|' read -r alias hn user; do
         _get_host_block "$alias"
@@ -116,7 +125,7 @@ _block_field() {
 # Return the Host alias whose HostName matches a given IP/hostname.
 get_alias_for_host_ip() {
     local ip="$1"
-    [[ -z $ip || ! -f "$SSH_CONFIG" ]] && return 0
+    [[ -z $ip || ! -r "$SSH_CONFIG" ]] && return 0
     awk -v tgt="$ip" '
         { l=$0; sub(/^[ \t]+/, "", l); split(l, a, /[ \t=]+/); k=tolower(a[1]) }
         k == "host" { alias=a[2] }

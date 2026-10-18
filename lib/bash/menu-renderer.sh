@@ -251,7 +251,13 @@ show_main_menu() {
                 f+="$(printf '\e[%d;%dH\e[90mv\e[0m' "$content_end" "$(( term_w - 1 ))")"
 
             # Second bar: red config warning when absent, else dim F-key shortcuts
-            if (( _CONFIG_MISSING )); then
+            if [[ -f $SSH_CONFIG && ! -r $SSH_CONFIG ]]; then
+                # Unreadable config: every list would silently be empty (plan E2).
+                local _cp="${SSH_CONFIG/#$HOME/~}"
+                local wmsg="  ⚠  Can't read $_cp — fix: chmod 600 $_cp"
+                local wpad; wpad=$(_repeat ' ' "$(( term_w - ${#wmsg} > 0 ? term_w - ${#wmsg} : 0 ))")
+                f+="$(printf '\e[%d;1H\e[41m\e[1;97m%s%s\e[0m' "$(( term_h - 1 ))" "${wmsg:0:term_w}" "$wpad")"
+            elif (( _CONFIG_MISSING )); then
                 local wmsg="  ⚠  SSH config missing — press F2 to create it"
                 local wpad; wpad=$(_repeat ' ' "$(( term_w - ${#wmsg} > 0 ? term_w - ${#wmsg} : 0 ))")
                 f+="$(printf '\e[%d;1H\e[41m\e[1;97m%s%s\e[0m' "$(( term_h - 1 ))" "$wmsg" "$wpad")"

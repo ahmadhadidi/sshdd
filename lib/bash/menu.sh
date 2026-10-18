@@ -418,11 +418,19 @@ _check_config_at_start() {
     printf '\e[?25h'
 
     printf '  \e[36mCreate ~/.ssh/config now?\e[0m \e[90m[Y/n] \e[0m'
-    local ans
-    IFS= read -r ans 2>/dev/null || ans=''
-    printf '\e[?25l'
+    # One keypress, blocking. A plain `read` here ran in the menu's raw mode (VTIME 100 ms), so it
+    # returned empty at once and the default "Y" created the file before the user could answer.
+    local ans=''
+    while :; do
+        _read_key
+        case "$KEY" in
+            y|Y|"$KEY_ENTER"|"$KEY_ENTER2") ans=y; break ;;
+            n|N|"$KEY_ESC")                 ans=n; break ;;
+        esac
+    done
+    printf '%s\n\e[?25l' "$ans"
 
-    if [[ -z $ans || "$ans" == [yY]* ]]; then
+    if [[ $ans == y ]]; then
         _do_create_config
         printf '\n  \e[90mPress any key to continue...\e[0m'
         _read_key

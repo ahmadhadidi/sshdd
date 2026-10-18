@@ -89,6 +89,7 @@ show_ssh_config_file() {
 
         _read_key
         case "$KEY" in
+            "$KEY_RESIZE")            need_redraw=1 ;;
             "$KEY_UP")                (( off-- ));              need_redraw=1 ;;
             "$KEY_DOWN")              (( off++ ));              need_redraw=1 ;;
             "$KEY_PGUP")              (( off -= content_rows )); need_redraw=1 ;;
@@ -347,6 +348,9 @@ show_ssh_key_inventory() {
 
         _read_key
         case "$KEY" in
+            "$KEY_RESIZE")
+                need_redraw=1
+                ;;
             "$KEY_UP")
                 (( sel > 0 )) && { (( sel-- )); need_redraw=1; }
                 ;;

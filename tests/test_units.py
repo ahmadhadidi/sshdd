@@ -159,3 +159,13 @@ def test_replace_host_block_writes_through_symlink(tmp_path, engine):
     assert link.is_symlink()
     assert real.read_text() == OTHER
     assert stat.S_IMODE(real.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("engine", ["perl", "python3"])
+def test_get_host_block_with_and_without_perl(tmp_path, engine):
+    """E3: block lookup works without perl (python3 fallback), same rules."""
+    cfg = tmp_path / "config"
+    cfg.write_text("Host a-b\n    HostName 9.9.9.9\n\nhost=a\n    HostName 1.1.1.1\n\nHost c\n")
+    r = bash('_get_host_block a; printf "%s" "$_HOST_BLOCK"', env={"SSH_CONFIG": str(cfg)},
+             path=None if engine == "perl" else _no_perl_path(tmp_path))
+    assert r.stdout.strip() == "host=a\n    HostName 1.1.1.1"
