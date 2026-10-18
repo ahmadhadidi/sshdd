@@ -56,3 +56,19 @@ def test_powershell_every_screen(home, hotkey):
         import time
         time.sleep(1.5)
         assert not t.alive(), "one Q on the main menu must quit"
+
+
+def test_powershell_c1_control_dropped_unicode_kept(home):
+    """Read-LineKeys took every char >= 32, C1 controls too (U+009D starts an OSC string)."""
+    with _start(home) as t:
+        t.wait_for("Q Quit", timeout=15)
+        t.press("W")
+        t.wait_for("Enter SSH key name", timeout=8)
+        t.press("c1", "ENTER")
+        t.wait_for("comment", timeout=8)
+        t.press("a\x9dé", "ENTER")
+        t.wait_for("assphrase", timeout=8)
+        t.press("ENTER")
+        t.wait_for("Press any key", timeout=10)
+    comment = (home / ".ssh" / "c1.pub").read_text().rstrip("\n").split(" ", 2)[2]
+    assert comment.endswith("aé") and "\x9d" not in comment, repr(comment)   # after the pre-filled default

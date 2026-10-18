@@ -151,7 +151,7 @@ function Read-LineKeys {
         } elseif ([int]$k.Character -eq 21) {  # Ctrl+U
             [Console]::Write(("`b" * $buf.Length) + (" " * $buf.Length) + ("`b" * $buf.Length))
             $buf = ""
-        } elseif ([int]$k.Character -ge 32) {  # Printable
+        } elseif (-not [char]::IsControl($k.Character)) {  # Printable (not C0, DEL or C1: U+009D starts an OSC string)
             $buf += $k.Character
             [Console]::Write([string]$k.Character)
         }

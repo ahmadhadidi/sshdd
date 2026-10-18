@@ -144,6 +144,18 @@ _poll_byte() {
 
 # Wait for one key (caller holds stty -echo -icanon min 0 time 1). Sets KEY; KEY=$KEY_RESIZE when
 # the terminal size changed from TERM_H/TERM_W meanwhile, so the caller's loop redraws.
+# A UTF-8 character arrives as 2-4 bytes: read the rest, so KEY is one whole character. Byte by byte,
+# U+009D (C2 9D) passed the [[:cntrl:]] check and was echoed; terminals take it as the start of an OSC
+# string and swallow everything printed after it (found by H3 fuzzing).
+_utf8_tail() {
+    local n more=1
+    printf -v n '%d' "'$KEY"
+    (( n = (n + 256) % 256 ))                   # bash 3.2 reports the byte signed
+    (( n >= 0xC0 )) || return 0
+    (( n >= 0xE0 )) && more=2
+    (( n >= 0xF0 )) && more=3
+    while (( more-- > 0 )) && _poll_byte; do KEY+=$_BYTE; done
+}
 _wait_key() {
     local _sz
     until _poll_byte; do
@@ -158,6 +170,7 @@ _wait_key() {
     done
     KEY=$_BYTE
     [[ $KEY == $'\r' ]] && KEY=$'\n'
+    _utf8_tail
     if [[ $KEY == $'\x1b' ]]; then
         _esc_drain "min 0 time 1"
         KEY+=$_ESC_TAIL
@@ -184,6 +197,7 @@ _read_key_nb() {
     fi
     KEY=$_BYTE
     [[ $KEY == $'\r' ]] && KEY=$'\n'
+    _utf8_tail
     if [[ $KEY == $'\x1b' ]]; then
         _esc_drain "min 0 time 1"
         KEY+=$_ESC_TAIL

@@ -203,3 +203,20 @@ def test_ctrl_s_does_not_freeze(tmp_path):
         t.wait_for("Enter remote IP", timeout=4)
         t.press("\x13", "10")
         t.wait_for("10", timeout=3)
+
+
+def test_c1_control_dropped_unicode_kept(tmp_path):
+    """U+009D (bytes C2 9D) passed the control check byte by byte and was echoed; terminals then
+    swallowed all later output as an OSC string (found by H3). Whole UTF-8 characters still work."""
+    home = _home(tmp_path)
+    with Term(home=home) as t:
+        t.wait_for("Quit")
+        t.press("W")
+        t.wait_for("Enter SSH key name")
+        t.press("c1\r")
+        t.wait_for("Key comment")
+        t.press("\x15", "a\x9dé", "\r", gap=0.05)
+        t.wait_for("Passphrase")
+        t.press("\r")
+        t.wait_for("Press any key", timeout=10)
+    assert (home / ".ssh" / "c1.pub").read_text().rstrip("\n").split(" ", 2)[2] == "aé"
