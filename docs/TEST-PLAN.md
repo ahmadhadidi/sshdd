@@ -100,7 +100,7 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **D3** ✅ Delete Local Key: "None" is the default remote choice; local files only after an explicit yes · 🔨 other deletes.
 
 ### Z — security
-- **Z1** ✅ PS key generation (comment/passphrase literal, both argument modes) · ✅ remote key removal bash + PS on CT 213 (canary) · 🔨 the other inputs (name, host, user, password) through every op.
+- **Z1** ✅ PS key generation (comment/passphrase literal, both argument modes) · ✅ remote key removal bash + PS on CT 213 (canary) · ✅ key names can't leave `~/.ssh` (G, W, import; bash + PS) · 🔨 host/user/password through every op.
 - **Z2** 🔨 password never in the debug log, never in `ps` output for longer than the call, temp files 600/700.
 - **Z3** ✅ remote key removal keeps other keys and mode 600 (bash + PS) · 🔨 install/promote paths.
 
@@ -156,3 +156,4 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - **`set -u` on bash 3.2 crashed sshdd on any empty array** (`"${arr[@]}"` = unbound variable; bash ≥ 4.4 doesn't). Hit by "skip remote" in Delete Local Key; 31 such expansions. Fixed: no `set -u` (shellcheck covers typos); `test_static.py` keeps it out.
 - Errors in operations returned 1, which also means "skip Press any key", so the message flashed away (e.g. empty import path). Fixed: `_out error` sets `_OP_ERROR` and the ack is shown.
 - The passphrase prompt (`read -s`) took Esc as a character: the key got a passphrase containing `\x1b`. Fixed: `read_secret` (Esc cancels, Backspace edits). Generate & Install also carried on after a cancelled key generation.
+- **Key names could leave `~/.ssh`**: G and Import took `../../x` and ssh-keygen / the import wrote there. Fixed: `_valid_key_name` / `Test-SSHKeyName` where keys are written (generation and import), not only in W's prompt.

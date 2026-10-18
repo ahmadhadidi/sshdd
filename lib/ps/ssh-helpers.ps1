@@ -44,6 +44,14 @@ function Write-TextFile {
 }
 
 
+function Test-SSHKeyName {
+    # Plain file name inside ~/.ssh: letters, digits, . _ @ + -, no "/" "\" "..", not starting with
+    # "." or "-" (plan Z1: "..\..\x" made ssh-keygen write outside ~/.ssh). Same rule as bash.
+    param([string]$Name)
+    return ($Name -cmatch '^[A-Za-z0-9_][A-Za-z0-9._@+-]*$' -and $Name -notmatch '\.\.')
+}
+
+
 function Write-Out {
     # Write-Out STYLE FORMAT [ARGS...]
     # Prints a 2-space indented, color-coded line.
@@ -255,6 +263,13 @@ function Write-KeyPair {
         [string]$PubData,
         [bool]$CopyMode = $false
     )
+    # Only plain names directly in ~/.ssh (import names come from user text or a remote path).
+    $resolve = { param($p) $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($p).TrimEnd('/', '\') }
+    $inSshDir = (& $resolve (Split-Path $DestPriv -Parent)) -eq (& $resolve (Join-Path $env:USERPROFILE ".ssh"))
+    if (-not $inSshDir -or -not (Test-SSHKeyName (Split-Path $DestPriv -Leaf)) -or $DestPub -ne "$DestPriv.pub") {
+        Write-Out 'error' "Invalid key name '$(Split-Path $DestPriv -Leaf)': use letters, digits and . _ @ + - only."
+        return $false
+    }
     if (Test-Path $DestPriv) {
         $resp = Read-ColoredInput -Prompt "  '$(Split-Path $DestPriv -Leaf)' already exists. Overwrite? [y/N]" -ForegroundColor Yellow
         if ($resp -notmatch '^[Yy]') {

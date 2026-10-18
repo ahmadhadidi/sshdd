@@ -90,6 +90,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 - `_ssh_fence`:222 `TARGET` / `_ssh_fence_close`:241 — decorative rule printed around SSH sessions
 - `_remote_remove_pubkey TARGET PUBKEY` — removes one key line from the remote authorized_keys: key on stdin (never in the command: a `'` in a comment ran on the remote), file rewritten in place (keeps mode 600)
 - `_setup_askpass`:256 / `_destroy_askpass`:272 — temporary `SSH_ASKPASS` script for padded prompts
+- `_valid_key_name NAME` — the one rule for key names (plain file name in `~/.ssh`); checked where keys are written (`add_ssh_key_in_host`, `_write_key_pair`), not just in prompts
 - `_ensure_ssh_dir`:280 — `mkdir -p ~/.ssh && chmod 700`
 - `_write_key_pair`:291 `DEST_PRIV DEST_PUB DATA DATA [copy_mode]` — write or copy a key pair with permission enforcement
 - `_print_identity_files`:312 `ID_LOOKUP` — prints IdentityFile entries for a host (dim style)

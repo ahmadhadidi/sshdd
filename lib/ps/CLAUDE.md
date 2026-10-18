@@ -54,6 +54,7 @@ When modifying a PS module, these are the other files that call its functions:
 - `Write-SSHFence`:137 / `Write-SSHFenceClose`:157 — decorative dim rule around SSH session output; purely visual, no functional effect
 - `Invoke-RemotePrompt`:174 — calls `Read-RemoteHostAddress` then `Read-RemoteUser`; sets `$script:_RemoteHost`, `$script:_RemoteUser`, `$script:_RemoteAlias`. `_LastSelectedAlias` is set inside `Read-RemoteHostAddress` directly (no subshell-loss risk unlike bash). Always use this rather than calling the readers separately if you need the alias.
 - `Write-IdentityFiles`:188 — prints `IdentityFile` entries for a host (informational dim output)
+- `Test-SSHKeyName` — the one rule for key names; checked in `Add-SSHKeyInHost` and `Write-KeyPair` (which also requires the destination to be inside `~/.ssh`)
 - `Ensure-SSHDir`:199 — `New-Item -ItemType Directory` if `.ssh` absent
 - `Write-KeyPair`:207 — `CopyMode=$true`: `Copy-Item` from file paths; `CopyMode=$false`: `WriteAllText` with public key normalized to exactly one trailing newline (strips then appends). Returns `$true` on success, `$false` if user aborts the overwrite prompt.
 

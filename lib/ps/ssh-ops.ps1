@@ -12,6 +12,10 @@ function Add-SSHKeyInHost {
         [string]$Comment
     )
 
+    if (-not (Test-SSHKeyName $KeyName)) {
+        Write-Out 'error' "Invalid key name '$KeyName': use letters, digits and . _ @ + - only (no / \ or ..)."
+        return
+    }
     Write-Host -NoNewline "  `e[36mPassphrase`e[0m `e[90m(empty = passwordless)`e[0m  " -ForegroundColor Cyan
     $securePass = Read-Host -AsSecureString
     # NetworkCredential, not PtrToStringAuto(SecureStringToBSTR(...)): on macOS/Linux pwsh that

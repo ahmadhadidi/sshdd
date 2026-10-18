@@ -434,7 +434,7 @@ read_new_ssh_key_name() {
         local name="$_RCI_RESULT"
         if [[ -z $name ]]; then
             printf '  \e[31mKey name is required.\e[0m\n' >&2
-        elif [[ ! $name =~ ^[A-Za-z0-9_][A-Za-z0-9._@+-]*$ ]]; then
+        elif ! _valid_key_name "$name"; then
             printf '  \e[31mUse letters, digits and . _ @ + - only (no spaces or /).\e[0m\n' >&2
         elif [[ -e "$SSH_DIR/$name" || -e "$SSH_DIR/$name.pub" ]]; then
             printf '  \e[31m%s already exists in %s. Pick another name.\e[0m\n' "$name" "$SSH_DIR" >&2

@@ -292,6 +292,12 @@ _remote_remove_pubkey() {
         't=$(mktemp) && k=$(mktemp) && cat > "$k" && awk '\''NR==FNR { keys[$0]; next } !($0 in keys)'\'' "$k" ~/.ssh/authorized_keys > "$t" && cat "$t" > ~/.ssh/authorized_keys; rc=$?; rm -f "$t" "$k"; exit $rc'
 }
 
+# A key name must be a plain file name inside ~/.ssh: letters, digits, . _ @ + -, no "/", no "..",
+# not starting with "." or "-" (plan Z1: "../../.bashrc" made ssh-keygen write outside ~/.ssh).
+_valid_key_name() {
+    [[ $1 =~ ^[A-Za-z0-9_][A-Za-z0-9._@+-]*$ && $1 != *..* ]]
+}
+
 # ─── Local filesystem helpers ─────────────────────────────────────────────────
 
 # Ensure ~/.ssh exists with correct permissions.
@@ -308,6 +314,11 @@ _ensure_ssh_dir() {
 # Returns 1 if aborted.
 _write_key_pair() {
     local dest_priv="$1" dest_pub="$2" priv_data="$3" pub_data="$4" copy="${5:-0}"
+    # Only plain names directly in ~/.ssh (import names come from user text or a remote path).
+    if [[ ${dest_priv%/*} != "${SSH_DIR%/}" || $dest_pub != "$dest_priv.pub" ]] || ! _valid_key_name "${dest_priv##*/}"; then
+        _out error "Invalid key name '%s': use letters, digits and . _ @ + - only (no / or ..)." "${dest_priv#"$SSH_DIR"/}"
+        return 1
+    fi
     if [[ -f $dest_priv ]]; then
         local overwrite
         overwrite=$(read_colored_input "  '$(basename "$dest_priv")' already exists. Overwrite? [y/N]" yellow)

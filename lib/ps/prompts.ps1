@@ -100,7 +100,7 @@ function Read-NewSSHKeyName {
         $name = Read-ColoredInput -Prompt "  Enter SSH key name" -ForegroundColor "Cyan"
         if ([string]::IsNullOrWhiteSpace($name)) {
             Write-Host "  Key name is required." -ForegroundColor Red
-        } elseif ($name -cnotmatch '^[A-Za-z0-9_][A-Za-z0-9._@+-]*$') {
+        } elseif (-not (Test-SSHKeyName $name)) {
             Write-Host "  Use letters, digits and . _ @ + - only (no spaces or /)." -ForegroundColor Red
         } elseif ((Test-Path (Join-Path $sshDir $name)) -or (Test-Path (Join-Path $sshDir "$name.pub"))) {
             Write-Host "  $name already exists in $sshDir. Pick another name." -ForegroundColor Red

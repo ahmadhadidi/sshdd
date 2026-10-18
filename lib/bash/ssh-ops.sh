@@ -263,6 +263,10 @@ add_ssh_key_in_host() {
     local keyname="$1" comment="$2"
     local keypath="$SSH_DIR/$keyname"
     _dbg "add_ssh_key_in_host: keyname='$keyname' comment='$comment'"
+    if ! _valid_key_name "$keyname"; then
+        _out error "Invalid key name '%s': use letters, digits and . _ @ + - only (no / or ..)." "$keyname"
+        return 1
+    fi
 
     printf '  \e[36mPassphrase\e[0m \e[90m(empty = passwordless)\e[0m  '
     local passphrase
