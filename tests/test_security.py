@@ -159,3 +159,43 @@ def test_powershell_remote_key_removal_is_injection_safe_and_keeps_mode(tmp_path
     after = _ssh_run(f"cat ~/.ssh/authorized_keys; echo MODE=$(stat -c %a ~/.ssh/authorized_keys); "
                      f"ls {canary} 2>/dev/null && echo CANARY").stdout.decode()
     assert "CANARY" not in after and keep in after and pub.split()[1] not in after and "MODE=600" in after
+
+
+@needs_pwsh
+def test_powershell_imported_key_usable(tmp_path):
+    """Write-KeyPair: no BOM (OpenSSH: 'error in libcrypto'), mode 600 off Windows, ssh loads it."""
+    src = tmp_path / "src"
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(src)], check=True)
+    r = _pwsh("Write-KeyPair -DestPriv $env:D -DestPub ($env:D + '.pub') "
+              "-PrivData ([IO.File]::ReadAllText($env:S)) -PubData ([IO.File]::ReadAllText($env:S + '.pub')) *> $null",
+              env=dict(os.environ, S=str(src), D=str(tmp_path / "k")))
+    assert r.returncode == 0, r.stderr
+    key = tmp_path / "k"
+    assert not key.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert oct(key.stat().st_mode & 0o777) == "0o600"
+    assert subprocess.run(["ssh-keygen", "-y", "-f", str(key)], capture_output=True).returncode == 0
+
+
+@needs_pwsh
+def test_powershell_config_edit_no_bom_and_symlink_kept(tmp_path):
+    """Add-SSHKeyToHostConfig: config stays BOM-free (OpenSSH rejects the whole file otherwise),
+    readable by ssh -G, and a symlinked config keeps its link."""
+    real = tmp_path / "dot" / "config"
+    real.parent.mkdir()
+    real.write_text("Host a\n    HostName 1.1.1.1\n    IdentityFile $HOME/.ssh/old\n")
+    (tmp_path / ".ssh").mkdir()
+    for k in ("k1", "k2"):
+        (tmp_path / ".ssh" / k).write_text("x")
+    (tmp_path / ".ssh" / "config").symlink_to(real)
+    r = _pwsh(f"$env:USERPROFILE = '{tmp_path}'\n"
+              "function Read-HostWithDefault { param($Prompt, $Default) 'n' }\n"
+              "function Confirm-UserChoice { param($Message, $Action, $DefaultAnswer) }\n"
+              "Add-SSHKeyToHostConfig -KeyName k1 -RemoteHostName a -RemoteHostAddress 1.1.1.1 -RemoteUser root *> $null\n"
+              "Add-SSHKeyToHostConfig -KeyName k2 -RemoteHostName b -RemoteHostAddress 2.2.2.2 -RemoteUser root *> $null\n")
+    assert r.returncode == 0, r.stderr
+    assert (tmp_path / ".ssh" / "config").is_symlink()
+    data = real.read_bytes()
+    assert not data.startswith(b"\xef\xbb\xbf") and b"k1" in data and b"Host b" in data
+    assert b"IdentityFile $HOME/.ssh/old" in data
+    g = subprocess.run(["ssh", "-G", "-F", str(real), "b"], capture_output=True, text=True)
+    assert g.returncode == 0 and "hostname 2.2.2.2" in g.stdout, g.stderr

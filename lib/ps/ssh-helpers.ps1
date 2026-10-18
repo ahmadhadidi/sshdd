@@ -31,6 +31,19 @@ function Remove-RemotePublicKey {
 }
 
 
+function Write-TextFile {
+    # UTF-8 without BOM, through the existing file (keeps a symlink and the file's ACL/mode).
+    # Never Set-Content -Encoding UTF8 / WriteAllText(...UTF8): those write a BOM (Set-Content only
+    # on Windows PowerShell 5.1), and OpenSSH then rejects the whole config ("Bad configuration
+    # option: \357\273\277host") or the private key ("error in libcrypto").
+    param([string]$Path, [string]$Text)
+    # Resolve through PowerShell first: .NET doesn't turn "\" into "/" on macOS/Linux pwsh, so
+    # "$env:USERPROFILE\.ssh\config" would become a new file literally named "…\.ssh\config".
+    $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    [System.IO.File]::WriteAllText($full, $Text, [System.Text.UTF8Encoding]::new($false))
+}
+
+
 function Write-Out {
     # Write-Out STYLE FORMAT [ARGS...]
     # Prints a 2-space indented, color-coded line.
@@ -253,11 +266,13 @@ function Write-KeyPair {
         Copy-Item $PrivData $DestPriv -Force
         Copy-Item $PubData  $DestPub  -Force
     } else {
-        [System.IO.File]::WriteAllText($DestPriv, $PrivData, [System.Text.Encoding]::UTF8)
+        Write-TextFile $DestPriv $PrivData
         # Ensure public key ends with exactly one newline
         $pubContent = $PubData.TrimEnd("`n", "`r") + "`n"
-        [System.IO.File]::WriteAllText($DestPub, $pubContent, [System.Text.Encoding]::UTF8)
+        Write-TextFile $DestPub $pubContent
     }
+    # macOS/Linux pwsh: ssh refuses a private key others can read (Windows uses the profile ACL).
+    if ($PSVersionTable.Platform -eq 'Unix') { chmod 600 $DestPriv; chmod 644 $DestPub }
     Write-OutItem "$DestPriv  imported."
     Write-OutItem "$DestPub  imported."
     return $true

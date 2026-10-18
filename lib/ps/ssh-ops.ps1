@@ -69,8 +69,9 @@ function Add-SSHKeyToHostConfig {
                     $lines = $lines[0..0] + $identityLine + $lines[1..($lines.Count - 1)]
                 }
                 $newBlock  = ($lines -join "`n")
-                $newConfig = $config -replace [regex]::Escape($block), $newBlock
-                Set-Content -Path $sshConfig -Value $newConfig -Encoding UTF8
+                # Literal replace: with -replace, "$..." in the block (e.g. IdentityFile $HOME/...) is a substitution.
+                $newConfig = $config.Replace($block, $newBlock)
+                Write-TextFile $sshConfig ($newConfig.TrimEnd("`r", "`n") + "`n")
                 Write-Out 'ok' "IdentityFile added to existing Host $RemoteHostName."
             } else {
                 Write-Out 'warn' "IdentityFile already exists under Host $RemoteHostName."
@@ -78,7 +79,7 @@ function Add-SSHKeyToHostConfig {
         } else {
             $hostEntry = "Host $RemoteHostName`n    HostName $RemoteHostAddress`n    User $RemoteUser`n    IdentityFile $keyPath"
             $existing  = (Get-Content $sshConfig -Raw -Encoding UTF8).TrimEnd()
-            Set-Content $sshConfig -Value ($existing + "`n`n" + $hostEntry + "`n") -Encoding UTF8 -NoNewline
+            Write-TextFile $sshConfig ($existing + "`n`n" + $hostEntry + "`n")
             Write-Out 'ok'   "SSH config block created for $RemoteHostName."
             Write-Out 'info' "Connect with: ssh $RemoteHostName"
         }
@@ -314,7 +315,7 @@ function Remove-IdentityFileFromConfigBlock {
         Write-Out 'dim' "Key '$KeyName' not found in config block '$HostAlias'."
         return
     }
-    Set-Content $sshConfig -Value ($config.Replace($block, $newBlock)) -Encoding UTF8
+    Write-TextFile $sshConfig ($config.Replace($block, $newBlock).TrimEnd("`r", "`n") + "`n")
     Write-Out 'ok' "IdentityFile '$KeyName' removed from config block '$HostAlias'."
 }
 
@@ -544,8 +545,8 @@ function Remove-IdentityFileFromConfigEntry {
         return
     }
     $newBlock  = $newLines -join "`n"
-    $newConfig = $config -replace [regex]::Escape($block), $newBlock
-    Set-Content -Path $ConfigPath -Value $newConfig -Encoding UTF8
+    $newConfig = $config.Replace($block, $newBlock)   # literal: "$..." in a block is not a substitution
+    Write-TextFile $ConfigPath ($newConfig.TrimEnd("`r", "`n") + "`n")
     Write-Out 'ok' "IdentityFile '$KeyName' removed from Host '$RemoteHostName'"
 }
 

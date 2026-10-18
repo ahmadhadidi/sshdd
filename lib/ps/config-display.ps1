@@ -48,7 +48,7 @@ function Remove-HostFromSSHConfig {
     }
 
     $newConfig = ($config -replace [regex]::Escape($match.Value), "").TrimEnd() + "`n"
-    [System.IO.File]::WriteAllText($configPath, $newConfig, [System.Text.Encoding]::UTF8)
+    Write-TextFile $configPath $newConfig
     Write-Out 'ok' "Host '$hostName' removed from SSH config."
 }
 

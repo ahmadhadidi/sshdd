@@ -89,14 +89,14 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 
 ### E — environment and errors
 - **E1** ✅ new key name validation (#4).
-- **E2** 🔨 no `~/.ssh`, no config (F2 creates it, mode 600), unreadable config, config is a symlink.
+- **E2** ✅ config is a symlink: edits reach the target, link and mode kept (bash + PS) · 🔨 no `~/.ssh`, no config, unreadable config.
 - **E3** 🔨 no `perl`, no `sshpass`, no `curl` (cloud run message).
 - **E4** 🔨 `LANG=C`, `TERM=vt100`, `TERM=dumb`, 40×10 terminal: degrade without garbage.
 - **E5** 🔨 unreachable host, wrong password, host key changed, remote without `~/.ssh`: clear message, back to menu.
 
 ### D — data safety
 - **D1** 🔨 every config edit keeps comments, `Include`, `Match`, `Host *` and other blocks byte-for-byte.
-- **D2** 🔨 permissions: `~/.ssh` 700, private keys 600, config 600 after every op.
+- **D2** ✅ PS imported private key 600 · 🔨 every op.
 - **D3** 🔨 delete operations remove only what was confirmed.
 
 ### Z — security
@@ -146,3 +146,5 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Parsers vs OpenSSH (H1): a repeated HostName/User showed the last value (OpenSSH uses the first); lowercase `host` lines weren't found by `_get_host_block`; alias `a` matched `Host a-b`; `get_hosts_using_key k2` matched `xk2`. PS: the alias was pasted into the regex unescaped. Fixed in bash and PS (`Get-HostBlockPattern`).
 - `_write_key_pair` stripped only one trailing newline from a pasted key.
 - `_visual_width` counted text-presentation emoji (🗑 🗝 🏚 👁, Unicode width 1) as 2 columns: the title box's right border was one column off on Delete Remote/Local, List Keys, Remove Host and View Config (screenshot `handoff/view-config-before-after.png`). Likely the old todo1 note "View SSH Config box looks broken".
+- Bash config edits used `perl -i`, which replaces a symlinked config (dotfile managers) with a plain file; the real config stopped getting edits. Fixed: write through the file.
+- PS wrote files with a UTF-8 BOM (`WriteAllText(…UTF8)` always; `Set-Content -Encoding UTF8` on Windows PowerShell 5.1). OpenSSH rejects a BOM config entirely (`Bad configuration option: \357\273\277host`, every connection fails) and a BOM private key (`error in libcrypto`), checked with OpenSSH here; Win32-OpenSSH not verified. Imported keys were also mode 664 on macOS/Linux pwsh (ssh refuses them), and `-replace` treated `$…` in a config block as substitutions. Fixed: `Write-TextFile` (no BOM, path resolved by PowerShell), chmod 600, literal `.Replace`.

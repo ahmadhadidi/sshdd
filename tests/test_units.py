@@ -142,3 +142,20 @@ def test_visual_width_matches_wcwidth_for_every_app_label():
     got = dict(zip(sorted(labels), map(int, r.stdout.split())))
     wrong = {l: (got[l], wcwidth.wcswidth(l)) for l in labels if got[l] != wcwidth.wcswidth(l)}
     assert not wrong, wrong
+
+
+@pytest.mark.parametrize("engine", ["perl", "python3"])
+def test_replace_host_block_writes_through_symlink(tmp_path, engine):
+    """E2: a symlinked config (dotfile managers) stays a symlink and its target gets the edit;
+    the file keeps its mode."""
+    real = tmp_path / "dotfiles" / "config"
+    real.parent.mkdir()
+    real.write_text(OTHER + TARGET)
+    real.chmod(0o600)
+    link = tmp_path / "config"
+    link.symlink_to(real)
+    bash('_replace_host_block "$OLD" ""', env={"SSH_CONFIG": str(link), "OLD": TARGET.rstrip("\n")},
+         path=None if engine == "perl" else _no_perl_path(tmp_path))
+    assert link.is_symlink()
+    assert real.read_text() == OTHER
+    assert stat.S_IMODE(real.stat().st_mode) == 0o600
