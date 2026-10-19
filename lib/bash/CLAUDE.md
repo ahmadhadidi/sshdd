@@ -69,6 +69,7 @@ Reads `~/.ssh/config` using `perl`, `awk`, `grep`:
 - `get_configured_ssh_hosts`:14 — emits `alias|hostname|user` tuples
 - `get_available_ssh_keys`:28 — lists private keys in `~/.ssh`
 - `_get_host_block`:49 / `_replace_host_block`:143 — multiline Host block read/write. Values go to perl/python through the environment, never pasted into their code. Matching rules (keyword case, `=`, alias boundary, first value wins) are checked against `ssh -G` by `tests/test_properties.py`
+- `_identity_files_in_block` (stdin) — every IdentityFile value of a block, quotes removed (awk; keyword any case, `=`). Use it, never `grep`/`sed` with `\s` (GNU-only: macOS sed leaves the line as it is)
 - `_block_field`:101 — extract a single field from a Host block
 - `get_identity_files_for_host`:60 / `get_hosts_using_key`:87 — cross-reference keys and hosts
 - `get_alias_for_host_ip`:109 — reverse-lookup Host alias from a HostName IP
@@ -217,6 +218,7 @@ The bash implementation targets bash 3.2 exclusively (macOS system shell, GPL v2
 - **Esc inside `$(...)`.** `read_colored_input` / `read_host_with_default` return 1 on Esc, but `_SELECT_CANCELLED` set inside `$(...)` never reaches the caller. Always `x=$(read_... ) || return 1`; never test `_SELECT_CANCELLED` after a `$(...)` prompt, and never let Esc fall through to a default (`confirm_user_choice`).
 - **`_LAST_SELECTED_ALIAS` subshell loss.** Any global set inside `$()` is discarded. Use `get_alias_for_host_ip` as a reverse-lookup after the subshell returns, or use `_prompt_remote` which handles this correctly.
 - **Ctrl+C guard.** The INT/TERM/TSTP/HUP traps only set the exit code; cleanup lives exclusively in the EXIT trap. The `_MENU_CLEANED_UP=1` flag prevents a second cleanup run.
+- **Compare IdentityFile values whole, never as substrings** (`grep -F`, `-match` on the line): key `dev` matched `dev-lan`/`lan-dev` (TODO #17). Compare the expanded path, or the file name after the last `/`.
 - **`${f/#$HOME/~}` differs by version**: bash 5 expands the `~` (giving `$HOME` back), 3.2 doesn't. Use `$_TILDE`.
 - **`_with_timeout` inside a pipe or `$(…)`**: its watcher `sleep` must not hold stdout, or the reader waits the full timeout (fixed: watcher output goes to /dev/null).
 - **Temp files: `_mktemp_reg VAR PREFIX`**, never `VAR=$(mktemp)` (a signal during the subshell loses the name). **Timeouts: `_with_timeout`**, never GNU `timeout` (not on macOS). `ssh`/`scp` are functions adding `ConnectTimeout=10`; call `command ssh` only when you mean the bare binary.

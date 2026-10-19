@@ -319,10 +319,16 @@ add_ssh_key_to_host_config() {
 
     _get_host_block "$host_name"
     if [[ -n $_HOST_BLOCK ]]; then
-        if printf '%s\n' "$_HOST_BLOCK" | grep -qF "${identity_line#    }"; then
-            _out warn '⚠️ IdentityFile already exists under Host %s.' "$host_name"
-            return 0
-        fi
+        # Whole values, ~ and $HOME expanded: a substring test said "dev" was already there when the
+        # block had ~/.ssh/dev-lan (TODO #17).
+        local _idf
+        while IFS= read -r _idf; do
+            _idf=${_idf/#\~/$HOME}; _idf=${_idf/#\$HOME/$HOME}
+            if [[ $_idf == "$keypath" ]]; then
+                _out warn '⚠️ IdentityFile already exists under Host %s.' "$host_name"
+                return 0
+            fi
+        done < <(printf '%s\n' "$_HOST_BLOCK" | _identity_files_in_block)
         local new_block
         new_block=$(printf '%s\n' "$_HOST_BLOCK" | awk -v il="$identity_line" '
             { lines[NR]=$0 }
@@ -373,10 +379,20 @@ remove_identity_file_from_config_block() {
         return 1
     fi
 
-    local esc; esc=$(_regex_escape "$keyname")
+    # Drop IdentityFile lines whose file name is exactly KEYNAME. The old regex made the slash
+    # optional, so removing "dev" also removed ~/.ssh/lan-dev (TODO #17).
     local new_block
-    new_block=$(printf '%s\n' "$_HOST_BLOCK" | \
-        grep -vE "^\s*IdentityFile\s+.*[/\\\\]?${esc}\s*$" || true)
+    new_block=$(printf '%s\n' "$_HOST_BLOCK" | awk -v k="$keyname" '
+        {
+            line = $0; sub(/^[ \t]+/, "", line)
+            if (match(line, /[ \t]*[ \t=][ \t]*/) && tolower(substr(line, 1, RSTART - 1)) == "identityfile") {
+                v = substr(line, RSTART + RLENGTH); sub(/[ \t\r]+$/, "", v)
+                if (v ~ /^".*"$/) v = substr(v, 2, length(v) - 2)
+                n = split(v, part, "/")
+                if (part[n] == k) next
+            }
+            print
+        }')
 
     if [[ "$new_block" == "$_HOST_BLOCK" ]]; then
         _out dim "Key '%s' not found in config block '%s'." "$keyname" "$host_alias"

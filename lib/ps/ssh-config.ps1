@@ -9,6 +9,19 @@
 # Regex for one Host block, same rules as bash _get_host_block (plan H1/H2): keyword any case,
 # any indent, "Host a" or "Host=a"; the alias must end at whitespace/end of line ("a" must not
 # match "Host a-b"); the alias is escaped. No -Alias: any alias, captured as group 1.
+function Get-IdentityFilesInBlock {
+    # Every IdentityFile value in a Host block (keyword any case, "=" allowed, quotes removed),
+    # with ~ and $HOME expanded. Same as bash _identity_files_in_block (TODO #17).
+    param([string]$Block)
+    foreach ($l in ($Block -split "`r?`n")) {
+        if ($l -match '^\s*identityfile(\s*=\s*|\s+)(.+?)\s*$') {
+            $v = $Matches[2].Trim('"')
+            $v -replace '^~', $env:USERPROFILE -replace '^\$HOME', $env:USERPROFILE
+        }
+    }
+}
+
+
 function Get-HostBlockPattern {
     param([string]$Alias)
     $kw   = '^[ \t]*(?i:host)[ \t]*[ \t=][ \t]*'

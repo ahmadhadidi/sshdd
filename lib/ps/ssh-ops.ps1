@@ -62,7 +62,10 @@ function Add-SSHKeyToHostConfig {
 
         if ($match.Success) {
             $block = $match.Value
-            if ($block -notmatch [regex]::Escape($identityLine.Trim())) {
+            # Whole paths, not a substring: "dev" was "already there" when the block had dev-lan (TODO #17).
+            $norm = { param($p) ($p -replace '[\\/]+', '/').TrimEnd('/') }
+            $have = @(Get-IdentityFilesInBlock $block | ForEach-Object { & $norm $_ })
+            if ($have -notcontains (& $norm $keyPath)) {
                 $lines = $block -split "`n"
                 $insertIndex = ($lines |
                     Select-String '^\s*IdentityFile\b' |
@@ -318,7 +321,8 @@ function Remove-IdentityFileFromConfigBlock {
     }
     $block    = $blockMatch.Value
     $keyE     = [regex]::Escape($KeyName)
-    $newBlock = [regex]::Replace($block, "(?m)^\s*IdentityFile\s+[^\r\n]*[\\/]$keyE[^\r\n]*(\r?\n|$)", "")
+    # The file name must be exactly KeyName: "[^\r\n]*" after it also removed dev-lan for "dev" (TODO #17).
+    $newBlock = [regex]::Replace($block, "(?m)^\s*(?i:IdentityFile)(\s*=\s*|\s+)`"?([^\r\n]*[\\/])?$keyE`"?[ \t]*(\r?\n|$)", "")
     if ($newBlock -eq $block) {
         Write-Out 'dim' "Key '$KeyName' not found in config block '$HostAlias'."
         return

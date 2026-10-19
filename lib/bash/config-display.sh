@@ -249,9 +249,7 @@ show_ssh_key_inventory() {
                     fi
                 done
                 (( _found )) || { _umap_keys+=("$_kname"); _umap_vals+=("$_alias"); }
-            done < <(printf '%s\n' "$_HOST_BLOCK" | \
-                grep -E '^\s*IdentityFile\s+' | \
-                sed -E 's/^\s*IdentityFile\s+//; s/^"(.*)"$/\1/' | \
+            done < <(printf '%s\n' "$_HOST_BLOCK" | _identity_files_in_block | \
                 xargs -I{} basename {} 2>/dev/null)
         done < <(get_configured_ssh_hosts)
     fi

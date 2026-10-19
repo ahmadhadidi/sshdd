@@ -324,9 +324,7 @@ _menu_remove_key_from_config() { # choice 9
     local -a key_names=()
     while IFS= read -r kn; do
         key_names+=("$(basename "$kn")")
-    done < <(printf '%s\n' "$_HOST_BLOCK" | \
-        grep -E '^\s*IdentityFile\s+' | \
-        sed -E 's/^\s*IdentityFile\s+//; s/^"(.*)"$/\1/' | \
+    done < <(printf '%s\n' "$_HOST_BLOCK" | _identity_files_in_block | \
         xargs -I{} basename {} 2>/dev/null)
 
     if (( ${#key_names[@]} == 0 )); then

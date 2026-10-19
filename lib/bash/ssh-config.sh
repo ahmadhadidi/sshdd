@@ -88,9 +88,7 @@ get_identity_files_for_host() {
     fi
 
     [[ -z $block ]] && return 0
-    printf '%s\n' "$block" | \
-        grep -E '^\s*IdentityFile\s+' | \
-        sed -E 's/^\s*IdentityFile\s+//; s/^"(.*)"$/\1/; s/^\s+//; s/\s+$//'
+    printf '%s\n' "$block" | _identity_files_in_block
 }
 
 # Print "alias|hostname|user" for hosts whose config block references KeyName as IdentityFile.
@@ -110,6 +108,20 @@ get_hosts_using_key() {
 # Extract a single field value from a host block.
 # Keyword match is case-insensitive and accepts "Key value" or "Key=value" (ssh_config syntax).
 # Pure awk: BSD sed (macOS) has no portable case-insensitive s///i flag.
+# Every IdentityFile value in BLOCK (stdin), one per line, quotes removed. awk, not sed: macOS sed has
+# no \s, so "IdentityFile /path" came through whole there (TODO #17).
+_identity_files_in_block() {
+    awk '
+        {
+            line = $0; sub(/^[ \t]+/, "", line)
+            if (!match(line, /[ \t]*[ \t=][ \t]*/)) next
+            if (tolower(substr(line, 1, RSTART - 1)) != "identityfile") next
+            v = substr(line, RSTART + RLENGTH); sub(/[ \t\r]+$/, "", v)
+            if (v ~ /^".*"$/) v = substr(v, 2, length(v) - 2)
+            print v
+        }'
+}
+
 _block_field() {
     local field="$1" block="$2"
     printf '%s\n' "$block" | awk -v f="$field" '

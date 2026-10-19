@@ -62,6 +62,7 @@ When modifying a PS module, these are the other files that call its functions:
 ### ssh-config.ps1
 
 - `Get-HostBlockPattern [-Alias]` — the one regex for a Host block (keyword any case, any indent, `Host=a`, alias escaped and bounded); use it, never write `^Host\s+…` by hand
+- `Get-IdentityFilesInBlock` — IdentityFile values of a block (`~`/`$HOME` expanded); compare whole paths, never `-match` a line (TODO #17)
 - `Get-AvailableSSHKeys`:9 — lists private key filenames (no `.pub`, no known housekeeping files) from `~/.ssh`; sorted
 - `Get-HostsUsingKey`:19 — returns hosts whose config block has an `IdentityFile` matching `$KeyName` by filename; returns `[pscustomobject]@{Alias; HostName; User}` array
 - `Get-ConfiguredSSHHosts`:34 — parses all `Host` blocks; skips `Host *`; returns `[pscustomobject]@{Alias; HostName; User}` array
