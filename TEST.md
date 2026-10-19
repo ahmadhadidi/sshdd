@@ -28,3 +28,7 @@ pytest tests/ -x
 ``` bash
 pytest tests/01_remote_generate_and_install.py -s
 ```
+
+Don't run other tests while the pre-commit hook runs: the per-test temp-file leak check counts every
+`/tmp/.sshdd-*`/`.hprobe-*` file, so a parallel run makes an unrelated hook test error
+(`test_ux.py::test_picker_with_many_hosts`, twice on 2026-10-19).
