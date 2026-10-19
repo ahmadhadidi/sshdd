@@ -28,3 +28,12 @@ Status: done (in Review, waiting for Ahmad); pushed 2026-10-18 (`c197806`).
 Status: done (in Review, waiting for Ahmad); not pushed
 - Answers in the #15 note: pre-connect host key check with `[y/N]` forget-and-retry; Local K/F and Remote O/B items; Remove Host offers to forget the key.
 - Security review (security-review-agent) found M1–M3, L1, L2 and a false "done"; all fixed with a regression test each in `tests/test_known_hosts.py`. Open: the hint wording and L3 (see the #15 note).
+
+## 2026-10-19 — TODO #17, #18 (and #19 filed)
+
+Status: done (in Review, waiting for Ahmad); all pushed (`6c5ff3b`).
+- #15 hint wording changed to "If you didn't recreate this host, answer N." (Ahmad's choice).
+- #17: IdentityFile compared whole (no substring); awk replaces GNU-only `sed \s` (broke key paths on macOS).
+- #18: 1Password's `Host * IdentityAgent` block: no conflict, tests only.
+- Open: #19 keys that live only in 1Password (Ahmad's MBP); needs a design agreed first. #14 in Inbox.
+- Don't run tests while the pre-commit hook runs (TEST.md).
