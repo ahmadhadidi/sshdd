@@ -554,7 +554,7 @@ _hostkey_check() {
     _out warn '⚠ Host key for %s changed.' "$shown"
     _out dim '  Old: %s' "$old"
     _out dim '  New: %s' "$new"
-    _out dim '  Expected after a CT is destroyed and recreated.'
+    _out dim "  If you didn't recreate this host, answer N."
     _HK_FAILED=0
     confirm_user_choice "Forget the old key and retry?" n _hk_replace || return 1
     (( ! _HK_FAILED ))

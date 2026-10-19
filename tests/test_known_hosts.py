@@ -64,6 +64,7 @@ def test_changed_key_shows_both_fingerprints_and_forgets(kh):
         assert f"Host key for {IP} (ct) changed" in txt
         assert _fp(kh["old"]) in txt and _fp(kh["new"]) in txt, txt
         assert "Forget the old key and retry? [y/N]" in txt
+        assert "If you didn't recreate this host, answer N." in txt   # Ahmad's wording, 2026-10-19
         t.press("y\r")
         t.wait_for("Remote username", timeout=5)
         assert f"Removed 1 key(s) for {IP}" in t.text()
@@ -257,6 +258,7 @@ def test_powershell_changed_key_forgets_and_trusts_new(kh):
         t.wait_for("retry? [y/N]", timeout=10)
         txt = t.text()
         assert f"Host key for {IP} (ct) changed" in txt and _fp(kh["old"]) in txt and _fp(kh["new"]) in txt, txt
+        assert "If you didn't recreate this host, answer N." in txt
         t.press("y", "ENTER")
         t.wait_for("Remote username", timeout=8)
         assert f"Trusted the new key for {IP}" in t.text()

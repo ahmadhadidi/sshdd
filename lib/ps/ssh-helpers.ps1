@@ -367,7 +367,7 @@ function Test-HostKey {
     Write-Out 'warn' "⚠ Host key for $shown changed."
     Write-Out 'dim'  "  Old: $(Format-KnownHostKey $old)"
     Write-Out 'dim'  "  New: $($new[0].Type) $($new[0].Fingerprint)"
-    Write-Out 'dim'  "  Expected after a CT is destroyed and recreated."
+    Write-Out 'dim'  "  If you didn't recreate this host, answer N."
     $script:_HkFailed = $false
     $ok = Confirm-UserChoice -Message "Forget the old key and retry?" -DefaultAnswer 'n' -Action {
         if (-not ((Remove-KnownHostKeys $hk) -and (Add-KnownHostScan $hk $scan[0]))) { $script:_HkFailed = $true }
