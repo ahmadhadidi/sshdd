@@ -23,7 +23,7 @@ FLOWS = {
     "I": [(PICK, "\r"), ("Select remote host", "\r"), ("Remote username", None)],
     "T": [("Select remote host", "\r"), ("Remote username", None)],
     "D": [("Select remote host", "\r"), ("Remote username", None)],
-    "Z": [("Select remote host", "\r"), ("Remote username", None)],
+    "Z": [("Select remote host", "\r"), ("Remote username", "\r"), ("List authorized keys of", None)],
     "N": [("Select remote host", "\r"), ("Remote username", None)],
     "A": [(PICK, "\r"), ("Select remote host", "\r"), ("Remote username", None)],
     "P": [(PICK, "\r"), (PICK, "\r"), (PICK, None)],

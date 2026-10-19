@@ -37,3 +37,9 @@ Status: done (in Review, waiting for Ahmad); all pushed (`6c5ff3b`).
 - #18: 1Password's `Host * IdentityAgent` block: no conflict, tests only.
 - Open: #19 keys that live only in 1Password (Ahmad's MBP); needs a design agreed first. #14 in Inbox.
 - Don't run tests while the pre-commit hook runs (TEST.md).
+
+## 2026-10-19 — TODO #14 List Authorized Keys: all users
+
+Status: done (in Review, waiting for Ahmad); not pushed
+- Ahmad's answers in the #14 note: ask each time (This user / All users), `authorized_keys` only, grouped by user.
+- CT 213: "needs root" path tested live (testuser); root and sudo paths tested locally with fake `id`/`getent`/`sudo`.

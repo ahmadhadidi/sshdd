@@ -376,6 +376,9 @@ _menu_list_authorized_keys() {   # choice 16
     _prompt_remote || return 1
     local host="$_REMOTE_HOST" user="$_REMOTE_USER"
     local target; target=$(resolve_ssh_target "$host" "$user")
+    select_from_list -s -p "List authorized keys of" "This user ($user)" "All users (needs root or sudo)"
+    (( _SELECT_CANCELLED )) && return 1
+    [[ $_SELECT_RESULT == All* ]] && { _list_all_authorized_keys "$target"; return 0; }
     printf '  \e[90mFetching authorized_keys from %s...\e[0m\n' "$target"
     _ssh_fence "$target"
     local keys
@@ -397,6 +400,49 @@ _menu_list_authorized_keys() {   # choice 16
             (( i++ ))
         done <<< "$keys"
     fi
+}
+
+# Every user's ~/.ssh/authorized_keys (TODO #14), as root or through `sudo -n` (no tty for a password).
+# Remote prints "U user path" per file, then "K line" per line; NOROOT (exit 4) when neither works.
+# _REMOTE_AK_ALL has no single quote: it goes into the command as s='...'.
+_REMOTE_AK_ALL='{ getent passwd 2>/dev/null || cat /etc/passwd; } | while IFS=: read -r u _ _ _ _ h _; do f="$h/.ssh/authorized_keys"; [ -f "$f" ] || continue; echo "U $u $f"; sed "s/^/K /" "$f"; echo; done; true'
+_REMOTE_AK_ROOT='if [ "$(id -u)" = 0 ]; then sh -c "$s"; elif sudo -n true 2>/dev/null; then sudo -n sh -c "$s"; else echo NOROOT; exit 4; fi'
+
+_list_all_authorized_keys() {
+    local target="$1" out
+    printf '  \e[90mFetching every user'\''s authorized_keys from %s...\e[0m\n' "$target"
+    _ssh_fence "$target"
+    out=$(ssh "$target" "s='$_REMOTE_AK_ALL'; $_REMOTE_AK_ROOT" 2>&1) || {
+        _ssh_fence_close
+        if [[ $out == *NOROOT* ]]; then
+            _out error 'All users needs root or passwordless sudo on %s.' "$target"
+        else
+            _out error 'Failed to fetch authorized_keys.'
+            _ssh_why "$out"
+        fi
+        return 0
+    }
+    _ssh_fence_close
+    printf '  \e[1;37mAuthorized keys on %s:\e[0m\n' "$target"
+    local i=1 line pend='' any=0
+    while IFS= read -r line; do
+        line=${line%$'\r'}
+        case $line in
+            "U "*)
+                [[ -n $pend ]] && printf '%s  \e[90m(none)\e[0m\n' "$pend"
+                line=${line#U }
+                printf -v pend '\n  \e[1;97m%s\e[0m  \e[90m%s\e[0m' "${line%% *}" "${line#* }"
+                any=1 ;;
+            "K "*)
+                line=${line#K }
+                [[ -z ${line//[[:space:]]/} ]] && continue
+                [[ -n $pend ]] && { printf '%s\n' "$pend"; pend=''; }
+                printf '  \e[90m%5d\e[0m  \e[36m%s\e[0m\n' "$i" "$line"
+                (( i++ )) ;;
+        esac
+    done <<< "$out"
+    [[ -n $pend ]] && printf '%s  \e[90m(none)\e[0m\n' "$pend"
+    (( any )) || printf '  \e[90mNo authorized_keys found on %s.\e[0m\n' "$target"
 }
 
 # ─── known_hosts (TODO #15) ───────────────────────────────────────────────────

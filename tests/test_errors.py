@@ -54,6 +54,9 @@ def test_unreachable_host(home, hotkey):
         t.press("dead\r")
         t.wait_for("Remote username")
         t.press("\r")
+        if hotkey == "Z":
+            t.wait_for("List authorized keys of")
+            t.press("\r")
         txt = _finish(t, timeout=40)
         low = txt.lower()
         assert any(w in low for w in ("unreachable", "not reachable", "could not", "failed", "refused",
@@ -89,6 +92,8 @@ def test_unreachable_gives_up_fast(home):
         t.wait_for("Select remote host", timeout=8)
         t.press("dead\r")
         t.wait_for("Remote username")
+        t.press("\r")
+        t.wait_for("List authorized keys of")
         t0 = time.time()
         t.press("\r")
         _finish(t, timeout=40)

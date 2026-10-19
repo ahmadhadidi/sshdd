@@ -130,6 +130,8 @@ def _list_keys_on_ct(t, password_answers):
     t.press("ct\r")
     t.wait_for("Remote username")
     t.press("\r")
+    t.wait_for("List authorized keys of")
+    t.press("\r")
     end = time.time() + 40
     while time.time() < end:
         t.pump(0.5)
@@ -182,6 +184,8 @@ def test_changed_host_key_forget_then_connects(ct_home):
         t.wait_for("retry? [y/N]", timeout=15)
         t.press("y\r")
         t.wait_for("Remote username")
+        t.press("\r")
+        t.wait_for("List authorized keys of")
         t.press("\r")
         end = __import__("time").time() + 40
         while "Press any key" not in t.text():

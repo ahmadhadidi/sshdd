@@ -108,8 +108,22 @@ def test_list_authorized_keys(ct):
         t.wait_for("Quit")
         t.press("Z")
         _pick_host(t)
+        t.wait_for("List authorized keys of")
+        t.press("\r")                                   # This user
         txt = _answer_password(t)
     assert "keep-me" in txt and "k2-e2e" in txt
+
+
+def test_list_all_users_needs_root(ct):
+    """Z, All users (#14): the CT user is neither root nor a sudoer, so it says so."""
+    with Term(home=ct, args=f"--user {LXC_USER}") as t:
+        t.wait_for("Quit")
+        t.press("Z")
+        _pick_host(t)
+        t.wait_for("List authorized keys of")
+        t.press("All\r")
+        txt = _answer_password(t, until="Press any key")
+    assert "needs root or passwordless sudo" in txt, txt
 
 
 def test_delete_remote_key(ct):

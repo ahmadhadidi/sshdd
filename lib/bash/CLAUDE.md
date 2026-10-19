@@ -156,7 +156,8 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 - `_menu_remove_host`:348 — delegates to `remove_host_from_ssh_config`
 - `_menu_view_config`:352 — calls `show_ssh_config_file`; returns 1 to skip `wait_user_acknowledge`
 - `_menu_edit_config`:357 — calls `edit_ssh_config_file`; returns 1 to skip `wait_user_acknowledge`
-- `_menu_list_authorized_keys`:362 — SSHes to target, fetches `authorized_keys`, displays numbered list
+- `_menu_list_authorized_keys`:362 — asks This user / All users; SSHes to target, fetches `authorized_keys`, displays numbered list
+- `_list_all_authorized_keys TARGET` (#14) — every user's `~/.ssh/authorized_keys` grouped by user, as root or via `sudo -n` (`_REMOTE_AK_*`; NOROOT when neither)
 - `_menu_add_config_block`:389 — delegates to `register_remote_host_config` (reads remote auth_keys, creates host config entry)
 - `_menu_import_key`:394 — delegates to `import_external_ssh_key` (local path / SCP / paste)
 - `_menu_list_known_hosts` (19, K) / `_menu_forget_host_key` (20, F) — local `~/.ssh/known_hosts`

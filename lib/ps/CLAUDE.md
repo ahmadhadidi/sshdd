@@ -133,7 +133,8 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 - `_MenuViewConfig`:385 — calls `Show-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuEditConfig`:390 — calls `Edit-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuListKeys`:171 — calls `Show-SSHKeyInventory`; returns `$true` to skip `Wait-UserAcknowledge`
-- `_MenuListAuthorizedKeys`:395 — SSHes to target, fetches `authorized_keys`, displays numbered list
+- `_MenuListAuthorizedKeys`:395 — asks This user / All users; SSHes to target, fetches `authorized_keys`, displays numbered list
+- `Write-AllAuthorizedKeys` (#14) — every user's `~/.ssh/authorized_keys` grouped by user, as root or via `sudo -n` (`$script:RemoteAk*`, script inside the command, not stdin: PS 5.1 pipes CRLF)
 - `_MenuAddConfigBlock`:422 — delegates to `Register-RemoteHostConfig` (reads remote auth_keys, creates host config entry)
 - `_MenuImportKey`:427 — delegates to `Import-ExternalSSHKey` (local path / SCP / paste)
 - `_MenuListKnownHosts` (19, K) / `_MenuForgetHostKey` (20, F) / `_MenuListRemoteKnownHosts` (21, O) / `_MenuForgetRemoteHostKey` (22, B) — remote names go on stdin (`$script:RemoteKh*`, CR stripped remotely)

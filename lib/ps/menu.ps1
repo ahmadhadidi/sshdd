@@ -411,6 +411,10 @@ function _MenuListAuthorizedKeys {   # choice 16 — SSH to target, fetch author
     $RemoteHostAddress = $script:_RemoteHost
     $RemoteUser        = $script:_RemoteUser
     $target = Resolve-SSHTarget -RemoteHostAddress $RemoteHostAddress -RemoteUser $RemoteUser
+    $scope = Select-FromList -Items @("This user ($RemoteUser)", "All users (needs root or sudo)") `
+                             -Prompt "List authorized keys of" -StrictList
+    if (-not $scope) { return }
+    if ($scope -like 'All*') { Write-AllAuthorizedKeys $target; return }
     Write-Out 'dim' "Fetching authorized_keys from $target..."
     Write-SSHFence $target
     try {
@@ -430,6 +434,41 @@ function _MenuListAuthorizedKeys {   # choice 16 — SSH to target, fetch author
         Write-SSHFenceClose
         Write-Out 'error' "Failed to fetch authorized_keys: $($_.Exception.Message)"
     }
+}
+
+# Every user's ~/.ssh/authorized_keys (TODO #14), as root or through `sudo -n` (no tty for a password).
+# Remote prints "U user path" per file, then "K line" per line; NOROOT (exit 4) when neither works.
+# RemoteAkAll has no single quote: it goes into the command as s='...'.
+$script:RemoteAkAll  = '{ getent passwd 2>/dev/null || cat /etc/passwd; } | while IFS=: read -r u _ _ _ _ h _; do f="$h/.ssh/authorized_keys"; [ -f "$f" ] || continue; echo "U $u $f"; sed "s/^/K /" "$f"; echo; done; true'
+$script:RemoteAkRoot = 'if [ "$(id -u)" = 0 ]; then sh -c "$s"; elif sudo -n true 2>/dev/null; then sudo -n sh -c "$s"; else echo NOROOT; exit 4; fi'
+
+function Write-AllAuthorizedKeys {
+    param([string]$Target)
+    Write-Out 'dim' "Fetching every user's authorized_keys from $Target..."
+    Write-SSHFence $Target
+    $out = @(ssh $Target (ConvertTo-NativeArgument "s='$($script:RemoteAkAll)'; $($script:RemoteAkRoot)") 2>&1 | ForEach-Object { "$_".TrimEnd("`r") })
+    $rc = $LASTEXITCODE
+    Write-SSHFenceClose
+    if ($rc -ne 0) {
+        if ($out -contains 'NOROOT') { Write-Out 'error' "All users needs root or passwordless sudo on $Target." }
+        else { Write-Out 'error' "Failed to fetch authorized_keys."; Write-Out 'dim' "ssh: $($out | Select-Object -Last 1)" }
+        return
+    }
+    Write-Host "  `e[1;37mAuthorized keys on ${Target}:`e[0m"
+    $i = 1; $pend = $null; $any = $false
+    foreach ($line in $out) {
+        if ($line.StartsWith('U ')) {
+            if ($pend) { Write-Host "$pend  `e[90m(none)`e[0m" }
+            $u, $p = $line.Substring(2) -split ' ', 2
+            $pend = "`n  `e[1;97m$u`e[0m  `e[90m$p`e[0m"; $any = $true
+        } elseif ($line.StartsWith('K ') -and $line.Substring(2).Trim()) {
+            if ($pend) { Write-Host $pend; $pend = $null }
+            Write-Host "  `e[90m$($i.ToString().PadLeft(5))`e[0m  `e[36m$($line.Substring(2))`e[0m"
+            $i++
+        }
+    }
+    if ($pend) { Write-Host "$pend  `e[90m(none)`e[0m" }
+    if (-not $any) { Write-Out 'dim' "No authorized_keys found on $Target." }
 }
 
 # ── known_hosts (TODO #15) ────────────────────────────────────────────────────
