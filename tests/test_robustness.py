@@ -42,6 +42,7 @@ def _to_menu(t):
 
 @FUZZ
 @given(text=nasty)
+@example(text="\x1c")   # #28: Ctrl+\ (SIGQUIT) killed the prompt; W went back to the key name
 def test_fuzz_key_comment(tmp_path_factory, text):
     home = _home(tmp_path_factory.mktemp("h3"))
     canary = home / "canary"

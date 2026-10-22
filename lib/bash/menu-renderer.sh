@@ -172,6 +172,7 @@ show_main_menu() {
     trap 'exit 0'   TERM TSTP
     trap 'exit 129' HUP      # terminal closed / SSH dropped
     trap 'need_full=1' WINCH
+    trap '' QUIT             # Ctrl+\ does nothing; it killed the open prompt's subshell (#28). Inherited.
 
     # ── Startup config file check ────────────────────────────────────────────
     if [[ ! -f "$SSH_CONFIG" ]]; then
