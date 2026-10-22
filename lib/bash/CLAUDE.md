@@ -108,7 +108,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 
 - `read_colored_input`:25 `PROMPT COLOR` — single-line text input with ESC cancel, Ctrl+W word-delete; keys via `_wait_key` (whole UTF-8 characters: `read -n1` read bytes and echoed U+009D, #26)
 - `read_host_with_default`:160 `PROMPT DEFAULT` — pre-filled editable input
-- `read_remote_host_address`:267 — host selector; Esc cancels; typed digits or an IP that isn't configured is the address (subnet shorthand `"10"` → `"192.168.0.10"`); a typed name not in the config asks for the address, pre-filled with the name, and sets `_NEW_HOST_ALIAS` (→ `_REMOTE_NEW_ALIAS` in `_prompt_host`: the default alias for a new config block, #20); the manual prompt appears only when no hosts are configured
+- `read_remote_host_address`:267 — host selector; Esc cancels; typed digits or an IP that isn't configured is the address (subnet shorthand `"10"` → `"192.168.0.10"`); a typed name not in the config asks for the address (empty prompt), and sets `_NEW_HOST_ALIAS` (→ `_REMOTE_NEW_ALIAS` in `_prompt_host`: the default alias for a new config block, #20); the manual prompt appears only when no hosts are configured
 - `read_remote_user`:262 / `read_remote_host_name`:362 / `read_ssh_key_name`:398 (picker of existing keys) / `read_new_ssh_key_name` (new name, validated, no picker; used by W) / `read_ssh_key_comment`:432
 - `confirm_user_choice`:438 `MESSAGE DEFAULT ACTION_FN` — y/N confirmation that calls a callback
 - `find_config_file`:469 / `find_private_key`:478 / `find_public_key`:483 / `get_public_key`:488

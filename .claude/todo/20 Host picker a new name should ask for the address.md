@@ -6,7 +6,7 @@ category: ssh-ops
 creator: Ahmad
 created: 2026-10-22 11:22
 kind: todo
-latest: '10-22: e94b82d: typed new name asks for the address (pre-filled), alias = that name; bash+PS; 4 new/changed tests fail on old code. Not run live on CT 213.'
+latest: '10-22: Address prompt now starts empty (bash + PS); 4 tests fail on the pre-filled version.'
 description: 'Install SSH Key: typing claude-ho4 (no config entry, no DNS) in ''Select remote host (type to filter or create new)'' connected to ''claude-ho4'' instead of asking for the IP or last 1-3 digits (subnet shorthand).'
 ---
 ## Updates
@@ -18,3 +18,5 @@ description: 'Install SSH Key: typing claude-ho4 (no config entry, no DNS) in ''
 - Prompt: same as the manual prompt: `Enter remote IP / hostname (or last 1-3 digits for <subnet>.xx):`, after a line `<name> isn't in ~/.ssh/config.`
 - **Started 2026-10-22.**
 - **Ready for review 2026-10-22.** e94b82d: typed new name asks for the address (pre-filled), alias = that name; bash+PS; 4 new/changed tests fail on old code. Not run live on CT 213.
+- **Started 2026-10-22.** Ahmad 2026-10-22: the address prompt starts empty, not pre-filled with the typed name (screenshot: 'router' pre-filled looked like 192.168.0.router).
+- **Ready for review 2026-10-22.** Address prompt now starts empty (bash + PS); 4 tests fail on the pre-filled version.

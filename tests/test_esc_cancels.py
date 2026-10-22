@@ -74,7 +74,7 @@ def test_typed_unknown_host_is_used_directly(home, typed, shown):
 
 
 def test_typed_new_name_asks_for_its_address(home):
-    """TODO #20: a typed name that isn't in the config asks for its address, pre-filled with the name;
+    """TODO #20: a typed name that isn't in the config asks for its address (empty prompt);
     the subnet shorthand works there; Esc at that prompt cancels."""
     with Term(home=home, args="--subnet 192.168.0") as t:
         t.wait_for("Quit")
@@ -92,7 +92,8 @@ def test_typed_new_name_asks_for_its_address(home):
         t.wait_for("Select remote host")
         t.press("claude-ho4", "ENTER")
         t.wait_for("Enter remote IP")
-        t.press(*["BS"] * len("claude-ho4"), "45", "ENTER")
+        assert t.text().rstrip().endswith("192.168.0.xx):"), "the address prompt must start empty"
+        t.press("45", "ENTER")
         t.wait_for("Remote username")
         assert "Interpreted as: 192.168.0.45" in t.text()
         t.press("ESC")

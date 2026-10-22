@@ -32,7 +32,7 @@ def test_bash_new_name_becomes_the_alias(home):
     src = " ".join(f"source {ROOT}/lib/bash/{m}.sh;" for m in LIBS)
     snippet = (f'SSH_DIR="$HOME/.ssh"; SSH_CONFIG="$HOME/.ssh/config"; DEFAULT_SUBNET_PREFIX=192.168.0; {src}\n'
                'select_from_list() { _SELECT_CANCELLED=0; _SELECT_RESULT=claude-ho4; }\n'
-               'read_host_with_default() { case $1 in Enter*) printf 45;; *) printf %s "$2";; esac; }\n'
+               'read_host_with_default() { case $1 in Enter*) [ -z "$2" ] && printf 45;; *) printf %s "$2";; esac; }\n'
                '_hostkey_check() { :; }; _spin_start() { :; }; _spin_stop() { :; }\n'
                'ssh() { cat >/dev/null; echo remote-hn; }\n'
                'confirm_user_choice() { "$3"; }\n'
@@ -50,7 +50,7 @@ def test_powershell_new_name_becomes_the_alias(home):
     libs = "; ".join(f". '{ROOT}/lib/ps/{m}.ps1'" for m in PS_LIBS)
     script = (f"$env:USERPROFILE = '{home}'; {libs}; $DefaultSubnetPrefix = '192.168.0'; $DefaultUserName = 'kraid'\n"
               "function Select-FromList { 'claude-ho4' }\n"
-              "function Read-HostWithDefault { param($Prompt, $Default) if ($Prompt -like 'Enter*') { '45' } else { $Default } }\n"
+              "function Read-HostWithDefault { param($Prompt, $Default) if ($Prompt -like 'Enter*') { if ($Default) { 'PREFILLED' } else { '45' } } else { $Default } }\n"
               "function Test-HostKey { $true }; function Read-RemoteUser { 'kraid' }\n"
               "function ssh { $input | Out-Null; 'remote-hn' }\n"
               "function Confirm-UserChoice { param($Message, $Action, $DefaultAnswer) & $Action }\n"

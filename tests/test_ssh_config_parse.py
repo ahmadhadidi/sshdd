@@ -98,7 +98,7 @@ def test_powershell_host_prompt_esc_and_typed_text(tmp_path):
         "function Select-FromList { param($Items, $Prompt) $script:next }\n"
         "$script:next = '10';      Read-RemoteHostAddress 6>$null\n"
         "$script:next = 'tab';     Read-RemoteHostAddress 6>$null; $script:_LastSelectedAlias\n"
-        "function Read-HostWithDefault { param($Prompt, $Default) \"$Default\" | Out-Null; '45' }\n"
+        "function Read-HostWithDefault { param($Prompt, $Default) if ($Default) { 'PREFILLED' } else { '45' } }\n"
         "$script:next = 'newhost'; Read-RemoteHostAddress 6>$null; $script:_NewHostAlias\n"
         "function Select-FromList { throw [System.OperationCanceledException]::new() }\n"
         "try { Read-RemoteHostAddress; 'NOT-CANCELLED' } catch [System.OperationCanceledException] { 'CANCELLED' }\n"
