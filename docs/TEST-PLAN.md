@@ -167,6 +167,9 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Exit cleanup could be cut short by a second signal and talked to the (possibly gone) terminal before deleting files; temp files were created via `$(mktemp)`, so a signal during that subshell lost the file's name. Fixed: cleanup ignores further signals and deletes files first; `_mktemp_reg` registers the name before creating the file. Limit: a SIGHUP sent with the terminal still open, just before a prompt subshell forks, is missed by that subshell (a real hang-up also makes its read fail).
 - Append Hostname asked "Add to config anyway? (y/N): N" as a pre-filled text prompt; now the same `[y/N]` question as everywhere else (bash + PS).
 - PowerShell had no Esc in free-text prompts (`Read-Host`), the key list or View Config (only Q). Fixed: `Read-ColoredInput` uses the shared `Read-LineKeys` editor (Esc cancels, Ctrl+U clears); Esc closes the pager, key list and key viewer.
+- **Ctrl+S froze the app** (terminal flow control): output stopped until Ctrl+Q, so it looked hung. Found by the H3 fuzzer. Fixed: `stty -ixon` while sshdd runs (restored on exit).
+- Every typed character forked a process (`$(printf '%d' "'$k")` printable check), so a 2 KB paste took several seconds. Fixed: `[[ $k != [[:cntrl:]] ]]`.
+- SSH failures said only "Failed …": the reason ssh printed (host key changed, permission denied, timeout) was captured and dropped. Fixed: `_ssh_why` prints it.
 
 ## Open: bash vs PowerShell differences to decide (not changed)
 
@@ -174,6 +177,3 @@ Rule for every test: isolated `HOME` (temp dir); never the real `~/.ssh` (T0).
 - Conf Defaults key: bash F5 (F10 is taken by GNOME Terminal), PS F10.
 - Hint bars list different keys (PS: Home/End, F1 Help, F10 Conf, V View, E Edit).
 - PS screens use a teal title bar between rules; bash uses a box.
-- **Ctrl+S froze the app** (terminal flow control): output stopped until Ctrl+Q, so it looked hung. Found by the H3 fuzzer. Fixed: `stty -ixon` while sshdd runs (restored on exit).
-- Every typed character forked a process (`$(printf '%d' "'$k")` printable check), so a 2 KB paste took several seconds. Fixed: `[[ $k != [[:cntrl:]] ]]`.
-- SSH failures said only "Failed …": the reason ssh printed (host key changed, permission denied, timeout) was captured and dropped. Fixed: `_ssh_why` prints it.
