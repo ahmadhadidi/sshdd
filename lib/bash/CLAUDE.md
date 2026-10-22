@@ -181,6 +181,8 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 
 ## Key implementation notes
 
+- **Changing a menu flow (a new question, prompt or step): first grep every test and helper that drives it** (`press("Z")`, flow tables in `test_flows.py`, shared helpers like `_list_keys_on_ct`), update them all in one pass and run that set before committing; the pre-commit hook is not the way to find them (#21: #14 failed the hook twice).
+
 - **Remote lib loading uses temp files, not nested process substitution.** `source <(curl ...)` nested inside `bash <(curl ...)` fails on macOS — the outer process substitution holds a `/dev/fd` FD, and opening more FDs for inner substitutions causes curl to get a closed pipe (`Failure writing output to destination`). Fix: `_source_lib` downloads each lib to a `mktemp` file, sources it, then deletes it.
 - **`format_menu_label` uses pure bash regex, not `sed`.** BSD sed (macOS) does not support `\x1b` in replacements, and embedding a raw ESC byte in the sed replacement string is unreliable across platforms. The function uses `[[ =~ ]]` with `BASH_REMATCH` — `^([^lo_up]*)(char)(.*)$` finds the first hotkey occurrence — then `printf '\e[1;4m...\e[0;97m'` wraps it. No subprocess, no platform differences.
 - **No subprocess forks in render loops.** `$(printf ...)` costs ~1ms per call. Use `printf -v varname` instead.
