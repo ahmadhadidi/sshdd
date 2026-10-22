@@ -51,3 +51,6 @@ Status: done (in Review, waiting for Ahmad); not pushed
 - #20: a name typed in the host picker that isn't in ~/.ssh/config asks for the address (pre-filled with the name);
   Install SSH Key / Add config block default the alias to that name. Answers in the #20 note.
 - #24: README alias installers (bash/zsh, PowerShell); answers in the #24 note. zsh not installed here: untested in zsh itself.
+- #26: U+009D at a text prompt blanked the screen (read -n1 read bytes); fixed via _wait_key.
+- #25: tests run in parallel (pytest-xdist): hook ~20 min → ~2.5 min. Hook is .git/hooks/pre-commit (untracked).
+  Lesson #27 → claude-init skill parallel-test-suite.

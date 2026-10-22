@@ -280,13 +280,13 @@ _ssh_fence_close() {
 _CLEANUP_PATHS=()
 _cleanup_add() { _CLEANUP_PATHS+=("$@"); }
 
-# _mktemp_reg VAR PREFIX — create an empty temp file /tmp/PREFIX-…, registered for cleanup BEFORE it
+# _mktemp_reg VAR PREFIX — create an empty temp file ${TMPDIR:-/tmp}/PREFIX-…, registered for cleanup BEFORE it
 # exists. With VAR=$(mktemp) a signal during the subshell created the file but lost its name, so
 # exit cleanup could never remove it (plan T1). Exclusive create via noclobber; 600 by umask.
 _mktemp_reg() {
-    local _p _i
+    local _p _i _d=${TMPDIR:-/tmp}
     for (( _i = 0; _i < 20; _i++ )); do
-        _p="/tmp/$2-$$-$RANDOM$RANDOM"
+        _p="${_d%/}/$2-$$-$RANDOM$RANDOM"     # $TMPDIR: per user on macOS; per test under xdist (#25)
         _cleanup_add "$_p"
         if ( umask 077; set -C; : > "$_p" ) 2>/dev/null; then
             printf -v "$1" '%s' "$_p"

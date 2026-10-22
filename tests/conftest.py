@@ -31,17 +31,20 @@ def real_ssh_untouched():
         {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)})
 
 
-TMP_GLOBS = ("/tmp/.hprobe-*", "/tmp/.ssh-askpass-*", "/tmp/.sshdd-*")
+TMP_GLOBS = (".hprobe-*", ".ssh-askpass-*", ".sshdd-*")
 
 
 @pytest.fixture(autouse=True)
-def no_temp_files_left():
+def no_temp_files_left(tmp_path_factory, monkeypatch):
     """T1: sshdd removes its temp files however a test ends it (Term.close sends SIGHUP first).
-    Checked per test so a leak names its test; waits up to 3 s for a probe still timing out."""
+    Checked per test so a leak names its test; waits up to 3 s for a probe still timing out.
+    Each test gets its own TMPDIR (sshdd honours it), so parallel workers (xdist) don't see each other's files."""
     import glob
     import time
+    tmp = tmp_path_factory.mktemp("tmpdir")
+    monkeypatch.setenv("TMPDIR", str(tmp))
     def now():
-        return {f for g in TMP_GLOBS for f in glob.glob(g)}
+        return {f for g in TMP_GLOBS for f in glob.glob(f"{tmp}/{g}")}
     before = now()
     yield
     end = time.time() + 3

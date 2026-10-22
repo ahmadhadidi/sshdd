@@ -17,12 +17,12 @@ import pytest
 
 from .screen import BASH32, ROOT
 
-TMP_GLOBS = ["/tmp/.hprobe-*", "/tmp/.ssh-askpass-*", "/tmp/.sshdd-*"]
+TMP_GLOBS = [".hprobe-*", ".ssh-askpass-*", ".sshdd-*"]
 PROMPT = "READY> "
 
 
 def _tmp_files():
-    return {f for g in TMP_GLOBS for f in glob.glob(g)}
+    return {f for g in TMP_GLOBS for f in glob.glob(f"{os.environ['TMPDIR']}/{g}")}   # per test (conftest)
 
 
 @pytest.fixture
@@ -62,7 +62,9 @@ def _assert_clean(sh, before):
     assert "echo" in modes and "icanon" in modes, "terminal left in raw/no-echo mode"
     time.sleep(2.5)                                   # a leaked probe would still run its 2 s timeout
     assert not (_tmp_files() - before), f"temp files left: {_tmp_files() - before}"
-    probes = subprocess.run(["pgrep", "-f", "/dev/tcp/192.0.2."], capture_output=True, text=True).stdout
+    # This test's session only: under xdist other workers run probes to 192.0.2.x at the same time (#25).
+    probes = subprocess.run(["pgrep", "-s", str(sh.pid), "-f", "/dev/tcp/192.0.2."],
+                            capture_output=True, text=True).stdout
     assert not probes.strip(), f"probe processes left: {probes}"
 
 
@@ -118,7 +120,7 @@ def test_cleanup_inside_subscreens(shell, tmp_path, how, where):
         assert not (_tmp_files() - before)
     else:
         _assert_clean(shell, before)
-    left = subprocess.run(["pgrep", "-f", "^sleep 37$"], capture_output=True, text=True).stdout
+    left = subprocess.run(["pgrep", "-s", str(shell.pid), "-f", "^sleep 37$"], capture_output=True, text=True).stdout
     assert not left.strip(), f"editor left running: {left}"
 
 
@@ -150,5 +152,14 @@ def test_cleanup_at_ssh_password_prompt(shell, isolated_home, how):
         time.sleep(1)
         shell.sendcontrol("c")                             # the waiting ssh, as a user would
     _assert_clean(shell, before)
-    left = subprocess.run(["pgrep", "-f", "testuser@ct"], capture_output=True, text=True).stdout
+    left = subprocess.run(["pgrep", "-s", str(shell.pid), "-f", "testuser@ct"], capture_output=True, text=True).stdout
     assert not left.strip(), f"ssh left running: {left}"
+
+
+def test_temp_files_go_to_tmpdir(tmp_path):
+    """#25: temp files go to $TMPDIR (per user on macOS); the per-test leak check relies on it."""
+    src = " ".join(f"source {ROOT}/lib/bash/{m}.sh;" for m in ["tui", "ssh-config", "ssh-helpers"])
+    r = subprocess.run([BASH32, "-c", f'{src} _mktemp_reg f .sshdd-x && echo "$f" && rm -f "$f"'],
+                       env={"TMPDIR": f"{tmp_path}/", "PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+                       capture_output=True, text=True, timeout=30)
+    assert r.stdout.startswith(f"{tmp_path}/.sshdd-x-"), r.stdout + r.stderr

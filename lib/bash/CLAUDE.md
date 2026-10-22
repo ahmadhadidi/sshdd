@@ -106,7 +106,7 @@ Shared helpers sourced by both `ssh-ops.sh` and `menu.sh`. Must be loaded after 
 
 ### prompts.sh
 
-- `read_colored_input`:25 `PROMPT COLOR` — single-line text input with ESC cancel, Ctrl+W word-delete
+- `read_colored_input`:25 `PROMPT COLOR` — single-line text input with ESC cancel, Ctrl+W word-delete; keys via `_wait_key` (whole UTF-8 characters: `read -n1` read bytes and echoed U+009D, #26)
 - `read_host_with_default`:160 `PROMPT DEFAULT` — pre-filled editable input
 - `read_remote_host_address`:267 — host selector; Esc cancels; typed digits or an IP that isn't configured is the address (subnet shorthand `"10"` → `"192.168.0.10"`); a typed name not in the config asks for the address, pre-filled with the name, and sets `_NEW_HOST_ALIAS` (→ `_REMOTE_NEW_ALIAS` in `_prompt_host`: the default alias for a new config block, #20); the manual prompt appears only when no hosts are configured
 - `read_remote_user`:262 / `read_remote_host_name`:362 / `read_ssh_key_name`:398 (picker of existing keys) / `read_new_ssh_key_name` (new name, validated, no picker; used by W) / `read_ssh_key_comment`:432
@@ -210,8 +210,8 @@ The bash implementation targets bash 3.2 exclusively (macOS system shell, GPL v2
 **Terminal reads — the contract (TODO #11, plan X4):**
 
 - **Never read a key with bash's `read -n1` / `read -d`.** On a tty they force VMIN=1 and block until a byte arrives, ignoring `stty … time N`: a bare-Esc check or a poll loop can then hang, and loops can't redraw on resize.
-- **`_poll_byte`** reads one byte with `dd` under `stty -echo -icanon min 0 time 1` (100 ms): returns 1 on timeout. `dd` runs with TSTP/INT ignored (a stopped `dd` would hang sshdd on Ctrl+Z; bash still gets the signal and its trap runs when the read returns). The `x` suffix keeps a newline byte through `$(…)`.
-- **`_wait_key`** polls until a key arrives; when `stty size` no longer matches `TERM_H TERM_W` it updates them and returns `KEY=$KEY_RESIZE`. Every interactive loop handles `KEY_RESIZE` by redrawing (loops that redraw each iteration need nothing).
+- **`_poll_byte`** reads one byte with `dd` under `stty -echo -icanon min 0 time 1` (100 ms): returns 1 on timeout. `dd` runs with TSTP/INT/QUIT ignored (Ctrl+\ killed it mid-character and a lone byte was echoed, #26; a stopped `dd` would hang sshdd on Ctrl+Z; bash still gets the signal and its trap runs when the read returns). The `x` suffix keeps a newline byte through `$(…)`.
+- **`_wait_key`** polls until a key arrives (stdin not a terminal: nothing read = end of input, returns Enter, like `read` did); when `stty size` no longer matches `TERM_H TERM_W` it updates them and returns `KEY=$KEY_RESIZE`. Every interactive loop handles `KEY_RESIZE` by redrawing (loops that redraw each iteration need nothing).
 - **`_read_key`** (own stty), **`_read_key_raw`** (caller holds `min 0 time 1`) and **`_read_key_nb`** (one 100 ms window, main menu poll) are built on these. All call `_esc_drain` after ESC.
 - Interactive loops hold `stty -echo -icanon min 0 time 1` (not `min 1 time 0`).
 - **Limit:** a picker on an operation screen redraws its own rows on resize; the operation's title box above it is transcript and isn't redrawn.
@@ -224,7 +224,7 @@ The bash implementation targets bash 3.2 exclusively (macOS system shell, GPL v2
 - **Compare IdentityFile values whole, never as substrings** (`grep -F`, `-match` on the line): key `dev` matched `dev-lan`/`lan-dev` (TODO #17). Compare the expanded path, or the file name after the last `/`.
 - **`${f/#$HOME/~}` differs by version**: bash 5 expands the `~` (giving `$HOME` back), 3.2 doesn't. Use `$_TILDE`.
 - **`_with_timeout` inside a pipe or `$(…)`**: its watcher `sleep` must not hold stdout, or the reader waits the full timeout (fixed: watcher output goes to /dev/null).
-- **Temp files: `_mktemp_reg VAR PREFIX`**, never `VAR=$(mktemp)` (a signal during the subshell loses the name). **Timeouts: `_with_timeout`**, never GNU `timeout` (not on macOS). `ssh`/`scp` are functions adding `ConnectTimeout=10`; call `command ssh` only when you mean the bare binary.
+- **Temp files: `_mktemp_reg VAR PREFIX`** (in `${TMPDIR:-/tmp}`; tests give each test its own `TMPDIR`), never `VAR=$(mktemp)` (a signal during the subshell loses the name). **Timeouts: `_with_timeout`**, never GNU `timeout` (not on macOS). `ssh`/`scp` are functions adding `ConnectTimeout=10`; call `command ssh` only when you mean the bare binary.
 - **Cleanup on any exit (TODO #10).** Register every temp file with `_cleanup_add` (ssh-helpers.sh); `_menu_cleanup` removes them, kills background jobs and `_destroy_askpass`es. Kill background jobs with TERM then CONT: Ctrl+Z stops the whole process group and a stopped job ignores TERM (a `wait` on it hangs). Limit: a SIGTERM sent to sshdd alone while a foreground `ssh` runs is handled only after that `ssh` exits (bash defers traps until the foreground child returns); Ctrl+C and a closed terminal reach `ssh` too. Tests: `tests/test_termination.py`.
 - **Terminal resize.** `trap 'need_full=1' WINCH` in `show_main_menu` triggers a full redraw on the next loop iteration. The poll-based resize detection alone is insufficient — if a key arrives during a resize, the poll branch is skipped and only a differential update runs, leaving static elements (rules, title, hint bar) unredrawn.
 - **`authorized_keys` newline.** `printf '%s'` (not `printf '%s\n'`) when writing the public key — the `.pub` file already ends with `\n`.

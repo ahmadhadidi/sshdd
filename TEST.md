@@ -16,6 +16,15 @@ pytest tests/*_config_*.py
 pytest tests/ -v
 ```
 
+# In parallel
+> pytest-xdist (`python3 -m pip install pytest-xdist`) runs the suite on every core: ~2.5 min instead of ~20 (#25).
+> The pre-commit hook does this when xdist is installed. Each test gets its own `TMPDIR` (conftest), which sshdd
+> honours, so the temp-file leak check doesn't see other workers' files.
+
+``` bash
+pytest tests/ -m "not lxc" -n auto
+```
+
 # Fail Fast
 > If you're developing and want the tests to stop the moment one of them fails (so you can fix it immediately):
 
@@ -29,6 +38,5 @@ pytest tests/ -x
 pytest tests/01_remote_generate_and_install.py -s
 ```
 
-Don't run other tests while the pre-commit hook runs: the per-test temp-file leak check counts every
-`/tmp/.sshdd-*`/`.hprobe-*` file, so a parallel run makes an unrelated hook test error
-(`test_ux.py::test_picker_with_many_hosts`, twice on 2026-10-19).
+Avoid running other tests while the pre-commit hook runs: the leak check is per test now (own `TMPDIR`), but
+both runs compete for CPU and the timing-sensitive screen tests can time out.
