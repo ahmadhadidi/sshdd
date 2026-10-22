@@ -77,7 +77,7 @@ When modifying a PS module, these are the other files that call its functions:
 ### prompts.ps1
 
 - `Read-RemoteUser`:7 / `Read-RemoteHostName`:14 — thin wrappers around `Read-HostWithDefault` / `Select-FromList`; Esc cancels (the exception propagates); `Read-ColoredInput` only when no hosts are configured
-- `Read-RemoteHostAddress`:34 — shows configured-host combo-box; on selection sets `$script:_LastSelectedAlias` and returns the `HostName` value; Esc cancels (exception propagates); typed text that isn't a configured host is the address (no second prompt); the manual prompt appears only when no hosts are configured; subnet shorthand: 1–3 digit input → `"$SubnetPrefix.$digit"`
+- `Read-RemoteHostAddress`:34 — shows configured-host combo-box; on selection sets `$script:_LastSelectedAlias` and returns the `HostName` value; Esc cancels (exception propagates); typed digits or an IP that isn't configured is the address (no second prompt); a typed name not in the config asks for the address, pre-filled with the name, and sets `$script:_NewHostAlias` (→ `_RemoteNewAlias` in `Invoke-RemotePrompt`: the default alias for a new config block, #20); the manual prompt appears only when no hosts are configured; subnet shorthand: 1–3 digit input → `"$SubnetPrefix.$digit"`
 - `Read-NewSSHKeyName` — new-key name for `_MenuGenerateKey` (no picker; re-asks on empty, unsafe or existing names)
 - `Read-SSHKeyName`:75 / `Read-SSHKeyComment`:86 — key picker (combo-box → free text) and comment input; `Read-SSHKeyName` recurses via `Resolve-NullToAction` until non-empty
 - `Read-ColoredInput`:92 / `Read-HostWithDefault` — both use `Read-LineKeys` (Enter, Esc throws OperationCanceledException, Backspace, Ctrl+U)

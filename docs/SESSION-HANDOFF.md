@@ -43,3 +43,10 @@ Status: done (in Review, waiting for Ahmad); all pushed (`6c5ff3b`).
 Status: done (in Review, waiting for Ahmad); not pushed
 - Ahmad's answers in the #14 note: ask each time (This user / All users), `authorized_keys` only, grouped by user.
 - CT 213: "needs root" path tested live (testuser); root and sudo paths tested locally with fake `id`/`getent`/`sudo`.
+
+## 2026-10-22 — TODO #20 new host name asks for the address
+
+Status: done (in Review, waiting for Ahmad); not pushed
+- Doska board `sshdd` holds a one-time copy of the TODO list (19 cards, scripted diff clean). Notes stay the source.
+- #20: a name typed in the host picker that isn't in ~/.ssh/config asks for the address (pre-filled with the name);
+  Install SSH Key / Add config block default the alias to that name. Answers in the #20 note.

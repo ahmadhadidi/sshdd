@@ -34,6 +34,7 @@ function Read-RemoteHostAddress {
     param ([string]$SubnetPrefix = "")
     if (-not $SubnetPrefix) { $SubnetPrefix = $DefaultSubnetPrefix }
     $script:_LastSelectedAlias = $null
+    $script:_NewHostAlias = $null
     $RemoteHost = $null
 
     $hosts = Get-ConfiguredSSHHosts
@@ -57,6 +58,12 @@ function Read-RemoteHostAddress {
                 return $(if ($h.HostName) { $h.HostName } else { $h.Alias })
             }
             $RemoteHost = $selected   # typed text that isn't a configured host: use it as the address
+            # A new name (not digits/an IP): ask for its address, pre-filled with the name (#20).
+            if ($RemoteHost -notmatch '^\d{1,3}(\.\d{1,3}){0,3}$') {
+                $script:_NewHostAlias = $RemoteHost
+                Write-Host "  $RemoteHost isn't in ~/.ssh/config." -ForegroundColor Yellow
+                $RemoteHost = Read-HostWithDefault -Prompt "Enter remote IP / hostname (or last 1-3 digits for $SubnetPrefix.xx):" -Default $RemoteHost
+            }
         }
     }
 

@@ -415,6 +415,7 @@ _prompt_host() {
     _REMOTE_HOST=$(<"$_rha_out")
     rm -f "$_rha_out"
     _REMOTE_ALIAS="${_LAST_SELECTED_ALIAS:-$(get_alias_for_host_ip "$_REMOTE_HOST")}"
+    _REMOTE_NEW_ALIAS="$_NEW_HOST_ALIAS"   # a typed name not in the config: alias for a new block (#20)
 }
 
 # Prompt for a remote host and user in one call; checks the host key in between.

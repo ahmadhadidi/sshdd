@@ -82,7 +82,7 @@ install_ssh_key_on_remote() {
     _out ok 'SSH Public Key installed successfully.'
     _out dim 'Remote hostname: %s' "$remote_hostname"
 
-    local host_alias="${selected_alias:-$remote_hostname}"
+    local host_alias="${selected_alias:-${_REMOTE_NEW_ALIAS:-$remote_hostname}}"
     _add_identity_to_config() {
         printf "  Registering key to SSH config as '%s'...\n" "$host_alias"
         add_ssh_key_to_host_config "$keyname" "$host_alias" "$host_addr" "$remote_user"
@@ -252,9 +252,9 @@ register_remote_host_config() {
     fi
 
     local host_alias
-    host_alias=$(read_host_with_default "  Alias for this host in ~/.ssh/config:" "$host_addr") || \
-        host_alias="$host_addr"
-    [[ -z $host_alias ]] && host_alias="$host_addr"
+    host_alias=$(read_host_with_default "  Alias for this host in ~/.ssh/config:" "${_REMOTE_NEW_ALIAS:-$host_addr}") || \
+        host_alias="${_REMOTE_NEW_ALIAS:-$host_addr}"
+    [[ -z $host_alias ]] && host_alias="${_REMOTE_NEW_ALIAS:-$host_addr}"
 
     add_ssh_key_to_host_config "$chosen" "$host_alias" "$host_addr" "$remote_user"
 }

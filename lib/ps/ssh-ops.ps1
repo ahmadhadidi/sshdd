@@ -162,7 +162,7 @@ function Install-SSHKeyOnRemote {
         Write-Out 'ok' 'SSH Public Key installed successfully.'
         Write-Out 'dim' "Remote hostname: $RemoteHostName"
 
-        $defaultAlias = if ($selectedAlias) { $selectedAlias } else { $RemoteHostName }
+        $defaultAlias = if ($selectedAlias) { $selectedAlias } elseif ($script:_RemoteNewAlias) { $script:_RemoteNewAlias } else { $RemoteHostName }
         $hostAlias    = Read-HostWithDefault -Prompt "Name this Host in ~/.ssh/config:" -Default $defaultAlias
         if ([string]::IsNullOrWhiteSpace($hostAlias)) { $hostAlias = $defaultAlias }
 
@@ -229,8 +229,9 @@ function Register-RemoteHostConfig {
         $chosen  = $matchedKeys[0]
     }
 
-    $hostAlias = Read-HostWithDefault -Prompt "Alias for this host in ~/.ssh/config:" -Default $RemoteHostAddress
-    if ([string]::IsNullOrWhiteSpace($hostAlias)) { $hostAlias = $RemoteHostAddress }
+    $defaultAlias = if ($script:_RemoteNewAlias) { $script:_RemoteNewAlias } else { $RemoteHostAddress }
+    $hostAlias = Read-HostWithDefault -Prompt "Alias for this host in ~/.ssh/config:" -Default $defaultAlias
+    if ([string]::IsNullOrWhiteSpace($hostAlias)) { $hostAlias = $defaultAlias }
 
     Add-SSHKeyToHostConfig -KeyName $chosen.KeyName -RemoteHostAddress $RemoteHostAddress -RemoteHostName $hostAlias -RemoteUser $RemoteUser
 }

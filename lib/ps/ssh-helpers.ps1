@@ -241,6 +241,7 @@ function Invoke-RemotePrompt {
     $script:_RemoteAlias = if ($script:_LastSelectedAlias) { $script:_LastSelectedAlias } else {
         Get-AliasForHostIP $script:_RemoteHost
     }
+    $script:_RemoteNewAlias = $script:_NewHostAlias   # a typed name not in the config: alias for a new block (#20)
     $target = if ($script:_RemoteAlias) { $script:_RemoteAlias } else { $script:_RemoteHost }
     if (-not (Test-HostKey $target)) { throw [System.OperationCanceledException]::new() }
     $script:_RemoteUser  = Read-RemoteUser -DefaultUser $DefaultUserName

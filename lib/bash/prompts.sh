@@ -306,6 +306,7 @@ read_remote_user() {
 read_remote_host_address() {
     local subnet="${1:-$DEFAULT_SUBNET_PREFIX}" addr=""
     _LAST_SELECTED_ALIAS=""
+    _NEW_HOST_ALIAS=""
 
     local -a host_entries=() host_aliases=() host_ips=()
     while IFS='|' read -r alias hn user; do
@@ -380,6 +381,14 @@ read_remote_host_address() {
                 return 0
             fi
             addr="$_sel_disp"   # typed text that isn't a configured host: use it as the address
+            # A new name (not digits/an IP): ask for its address, pre-filled with the name (#20).
+            if [[ ! $addr =~ ^[0-9]{1,3}(\.[0-9]{1,3}){0,3}$ ]]; then
+                _NEW_HOST_ALIAS="$addr"
+                printf "  \e[33m%s isn't in ~/.ssh/config.\e[0m\n" "$addr" >&2
+                addr=$(read_host_with_default \
+                    "Enter remote IP / hostname (or last 1-3 digits for ${subnet}.xx):" "$addr") || return 1
+                [[ -z $addr ]] && { printf '  \e[31m No input provided.\e[0m\n' >&2; return 1; }
+            fi
         fi
     fi
 

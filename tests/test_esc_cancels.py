@@ -58,9 +58,9 @@ def test_esc_on_host_list_cancels(home):
         _back_to_main_then_quit(t)
 
 
-@pytest.mark.parametrize("typed,shown", [("10", "192.168.0.10"), ("203.0.113.9", "203.0.113.9"), ("newhost", "newhost")])
+@pytest.mark.parametrize("typed,shown", [("10", "192.168.0.10"), ("203.0.113.9", "203.0.113.9")])
 def test_typed_unknown_host_is_used_directly(home, typed, shown):
-    """Typing an address that isn't configured goes straight on with it, no second prompt."""
+    """Typing digits or an IP that isn't configured goes straight on with it, no second prompt."""
     with Term(home=home, args="--subnet 192.168.0") as t:
         t.wait_for("Quit")
         t.press("T")
@@ -69,6 +69,32 @@ def test_typed_unknown_host_is_used_directly(home, typed, shown):
         t.wait_for("Remote username")
         assert "Enter remote IP" not in t.text()
         assert shown in t.text()
+        t.press("ESC")
+        _back_to_main_then_quit(t)
+
+
+def test_typed_new_name_asks_for_its_address(home):
+    """TODO #20: a typed name that isn't in the config asks for its address, pre-filled with the name;
+    the subnet shorthand works there; Esc at that prompt cancels."""
+    with Term(home=home, args="--subnet 192.168.0") as t:
+        t.wait_for("Quit")
+        t.press("T")
+        t.wait_for("Select remote host")
+        t.press("claude-ho4", "ENTER")
+        t.wait_for("Enter remote IP")
+        assert "claude-ho4 isn't in ~/.ssh/config." in t.text()
+        assert "Remote username" not in t.text()
+        t.press("ESC")
+        _back_to_main_then_quit(t)
+    with Term(home=home, args="--subnet 192.168.0") as t:
+        t.wait_for("Quit")
+        t.press("T")
+        t.wait_for("Select remote host")
+        t.press("claude-ho4", "ENTER")
+        t.wait_for("Enter remote IP")
+        t.press(*["BS"] * len("claude-ho4"), "45", "ENTER")
+        t.wait_for("Remote username")
+        assert "Interpreted as: 192.168.0.45" in t.text()
         t.press("ESC")
         _back_to_main_then_quit(t)
 

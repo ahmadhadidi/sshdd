@@ -89,7 +89,7 @@ def test_powershell_parity(tmp_path):
 
 @pytest.mark.skipif(not shutil.which("pwsh"), reason="pwsh not installed")
 def test_powershell_host_prompt_esc_and_typed_text(tmp_path):
-    """TODO #1 parity: Esc on the host list cancels; typed text that isn't a host is the address."""
+    """TODO #1 parity: Esc on the host list cancels; typed digits are the address; a new name asks (#20)."""
     (tmp_path / ".ssh").mkdir()
     (tmp_path / ".ssh" / "config").write_text(CONFIG)
     libs = "; ".join(f". '{ROOT}/lib/ps/{m}.ps1'" for m in PS_LIBS)
@@ -98,13 +98,14 @@ def test_powershell_host_prompt_esc_and_typed_text(tmp_path):
         "function Select-FromList { param($Items, $Prompt) $script:next }\n"
         "$script:next = '10';      Read-RemoteHostAddress 6>$null\n"
         "$script:next = 'tab';     Read-RemoteHostAddress 6>$null; $script:_LastSelectedAlias\n"
-        "$script:next = 'newhost'; Read-RemoteHostAddress 6>$null\n"
+        "function Read-HostWithDefault { param($Prompt, $Default) \"$Default\" | Out-Null; '45' }\n"
+        "$script:next = 'newhost'; Read-RemoteHostAddress 6>$null; $script:_NewHostAlias\n"
         "function Select-FromList { throw [System.OperationCanceledException]::new() }\n"
         "try { Read-RemoteHostAddress; 'NOT-CANCELLED' } catch [System.OperationCanceledException] { 'CANCELLED' }\n"
     )
     out = subprocess.run(["pwsh", "-NoProfile", "-Command", script],
                          capture_output=True, text=True, check=True).stdout.split()
-    assert out == ["192.168.0.10", "10.0.0.5", "tabs", "newhost", "CANCELLED"]
+    assert out == ["192.168.0.10", "10.0.0.5", "tabs", "192.168.0.45", "newhost", "CANCELLED"]
 
 
 @pytest.mark.skipif(not shutil.which("pwsh"), reason="pwsh not installed")
