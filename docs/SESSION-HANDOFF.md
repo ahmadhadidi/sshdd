@@ -50,3 +50,4 @@ Status: done (in Review, waiting for Ahmad); not pushed
 - Doska board `sshdd` holds a one-time copy of the TODO list (19 cards, scripted diff clean). Notes stay the source.
 - #20: a name typed in the host picker that isn't in ~/.ssh/config asks for the address (pre-filled with the name);
   Install SSH Key / Add config block default the alias to that name. Answers in the #20 note.
+- #24: README alias installers (bash/zsh, PowerShell); answers in the #24 note. zsh not installed here: untested in zsh itself.
