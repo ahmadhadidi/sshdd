@@ -2,5 +2,10 @@
   "packs": [
     "proxmox-lxc"
   ],
-  "skills": {}
+  "skills": {
+    "lan-own-ca": {
+      "hash": "cf66f47edf28dc9dde76c5b236546458b54fca0bc539bb03e6d52fe0a9243ef2",
+      "pack": "proxmox-lxc"
+    }
+  }
 }
