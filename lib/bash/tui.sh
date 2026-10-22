@@ -89,7 +89,7 @@ _esc_drain() {
     local _restore_stty=${1:-} _c _n=0
     _ESC_TAIL=''
     stty min 0 time 1 2>/dev/null || true
-    _c=$(trap '' TSTP INT; dd bs=1 count=1 2>/dev/null)
+    _c=$(trap '' TSTP INT QUIT; dd bs=1 count=1 2>/dev/null)
     if [[ $_c == '[' || $_c == 'O' ]]; then
         _ESC_TAIL=$_c
         while (( _n++ < 8 )) && IFS= read -r -n1 _c 2>/dev/null; do
@@ -117,7 +117,7 @@ _cursor_pos() {
     # terminal that never answers. dd's read returns empty after 500 ms (VTIME).
     local _c _i
     for (( _i = 0; _i < 4; _i++ )); do
-        _c=$(trap '' TSTP INT; dd bs=32 count=1 </dev/tty 2>/dev/null)
+        _c=$(trap '' TSTP INT QUIT; dd bs=32 count=1 </dev/tty 2>/dev/null)
         [[ -z $_c ]] && break
         _r+=$_c
         [[ $_r == *R* ]] && break
@@ -137,7 +137,7 @@ _cursor_pos() {
 _poll_byte() {
     # dd ignores Ctrl+Z/Ctrl+C: they stop/kill the whole foreground group, and a stopped dd would
     # hang sshdd. bash still gets them; its traps run when this ≤100 ms read returns.
-    _BYTE=$(trap '' TSTP INT; dd bs=1 count=1 2>/dev/null; echo x)
+    _BYTE=$(trap '' TSTP INT QUIT; dd bs=1 count=1 2>/dev/null; echo x)
     _BYTE=${_BYTE%x}
     [[ -n $_BYTE ]]
 }
@@ -159,6 +159,7 @@ _utf8_tail() {
 _wait_key() {
     local _sz
     until _poll_byte; do
+        [[ -t 0 ]] || { KEY=$'\n'; return 0; }   # not a terminal: nothing read = end of input, Enter (as read did, #26)
         _sz=$(stty size 2>/dev/null)
         if [[ -n $_sz && -n ${TERM_W:-} && $_sz != "$TERM_H $TERM_W" ]]; then
             # Update the globals here: a loop that doesn't re-read the size would otherwise

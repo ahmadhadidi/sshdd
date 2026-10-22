@@ -34,21 +34,14 @@ read_colored_input() {
     # Hold raw mode for the entire input session so ESC is never echoed.
     local _rci_st
     _rci_st=$(stty -g 2>/dev/null) || true
-    stty -echo -icanon min 1 time 0 2>/dev/null || true
+    stty -echo -icanon min 0 time 1 2>/dev/null || true
 
     while true; do
-        # Read one key using the same multi-byte-aware logic as _read_key,
-        # but without the per-call stty save/restore (we own the mode here).
-        local k
-        IFS= read -r -n1 k 2>/dev/null || k=''
-        [[ -z $k ]] && k=$'\n'
-        if [[ $k == $'\x1b' ]]; then
-            # Use _esc_drain (read -r, no -n) — read -r -n1 blocks on Linux bash 3.2
-            # because -n prevents the 0-byte VTIME return from being treated as EOF.
-            _esc_drain ""
-            stty -echo -icanon min 1 time 0 2>/dev/null || true
-            k="${k}${_ESC_TAIL}"
-        fi
+        # _wait_key reads whole UTF-8 characters: read -n1 reads bytes in bash 3.2, so both
+        # bytes of U+009D passed the [[:cntrl:]] filter and the echoed C1 blanked the screen (#26).
+        _wait_key
+        local k=$KEY
+        [[ $k == "$KEY_RESIZE" ]] && continue
 
         case "$k" in
             $'\r'|$'\n')

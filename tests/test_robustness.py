@@ -10,7 +10,7 @@ E5  wrong password / changed host key on CT 213: a clear message, then the menu.
 import subprocess
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, example, given, settings, strategies as st
 
 from .screen import Term
 
@@ -65,6 +65,8 @@ def test_fuzz_key_comment(tmp_path_factory, text):
 
 @FUZZ
 @given(text=nasty)
+@example(text="\x9d")   # #26: read byte by byte, U+009D was echoed and blanked the screen
+@example(text="\x1c\x80")   # #26: Ctrl+\ (SIGQUIT) killed dd mid-character; a lone 0x80 was echoed
 def test_fuzz_host_entry(tmp_path_factory, text):
     home = _home(tmp_path_factory.mktemp("h3h"))
     canary = home / "canary"
