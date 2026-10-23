@@ -42,6 +42,7 @@ def test_held_down_arrow_moves_every_step(menu):
     assert "List Authorized Keys" in _selected(menu)  # 5th item below the first
 
 
+@pytest.mark.serial   # a timing measurement: under xdist load the median reached 88 ms (#34)
 def test_arrow_latency(menu):
     lats = []
     for _ in range(10):

@@ -22,8 +22,10 @@ pytest tests/ -v
 > honours, so the temp-file leak check doesn't see other workers' files.
 
 ``` bash
-pytest tests/ -m "not lxc" -n auto
+pytest tests/ -m "not lxc and not serial" -n auto   # then, on a quiet machine:
+pytest tests/ -m "serial and not lxc"
 ```
+Tests marked `serial` measure timing (arrow-key latency) and only mean something without other load (#34).
 
 # Fail Fast
 > If you're developing and want the tests to stop the moment one of them fails (so you can fix it immediately):
