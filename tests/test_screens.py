@@ -56,15 +56,29 @@ def _box_intact(t):
     return " ".join(rows[top:bot + 1])
 
 
+def _settle_after_key(t, before, change=2.0, quiet=0.3):
+    """Wait for the screen to react to a key (up to `change` s), then to stop changing for `quiet` s."""
+    import time
+    end = time.time() + change
+    while t.text() == before and time.time() < end:
+        t.pump(0.1)
+    last, still = t.text(), time.time()
+    while time.time() - still < quiet and time.time() < end + 3:
+        t.pump(0.1)
+        if t.text() != last:
+            last, still = t.text(), time.time()
+
+
 def _back_to_main(t):
+    """One key at a time, the next only after the screen settled: with a fixed 0.6 s gap, a redraw slowed
+    by load let a spare ENTER reach the main menu and open Generate & Install (#33)."""
+    t.pump(0.6)
     for key in ("ESC", "ESC", "Q", "ENTER"):
-        t.pump(0.6)
         if MAIN in t.text() and "┌" in t.text() and "SSHDD" in t.text():
             return
-        if "Press any key" in t.text():
-            t.press("ENTER")
-            continue
-        t.press(key)
+        before = t.text()
+        t.press("ENTER" if "Press any key" in before else key)
+        _settle_after_key(t, before)
     t.wait_for(MAIN, timeout=4)
 
 
