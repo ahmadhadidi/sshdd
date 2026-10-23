@@ -19,9 +19,13 @@ def _block(lang):
     return re.search(rf"```{lang}\n(.*?)```", sec, re.S).group(1)
 
 
-def _run_bash(home, shell="/bin/bash", bash="bash"):
+def _run_bash(home, shell="/bin/bash", bash="bash", password=None):
     env = {"HOME": str(home), "SHELL": shell, "PATH": "/usr/bin:/bin"}
-    r = subprocess.run([bash, "-c", "set -o noclobber\n" + _block("bash")], env=env, capture_output=True, text=True, timeout=30)
+    block = _block("bash")
+    if password is not None:
+        assert block.count("password=''") == 1
+        block = block.replace("password=''", f"password='{password}'")
+    r = subprocess.run([bash, "-c", "set -o noclobber\n" + block], env=env, capture_output=True, text=True, timeout=30)
     assert r.returncode == 0, r.stderr
     return r.stdout
 
@@ -86,3 +90,26 @@ def test_powershell_cloud_then_local_one_block(tmp_path):
     assert text.count("# >>> sshdd >>>") == 1 and "irm" not in text
     assert run(f". '{profile}'; sshdd -Verbose").strip() == \
         "ARGS -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix -[my-machine] -Verbose"
+
+
+def test_bash_optional_password(tmp_path):
+    """#24: an empty password stays out of the alias (checked above); a set one is passed."""
+    (tmp_path / "sshdd").mkdir()
+    (tmp_path / "sshdd" / "sshdd.sh").write_text('echo "ARGS $*"\n')
+    _run_bash(tmp_path, password="s3 cret")
+    assert _alias_output(tmp_path, tmp_path / ".bashrc") == \
+        "ARGS --user myuser --subnet 192.168.0 --comment-suffix -[my-machine] --password s3 cret --verbose"
+
+
+@pytest.mark.skipif(not shutil.which("pwsh"), reason="pwsh not installed")
+def test_powershell_optional_password(tmp_path):
+    env = {"HOME": str(tmp_path), "PATH": os.environ["PATH"]}
+    (tmp_path / "sshdd").mkdir()
+    (tmp_path / "sshdd" / "sshdd.ps1").write_text('"ARGS $args"\n')
+    block = _block("powershell")
+    assert block.count("$password = ''") == 1
+    block = block.replace("$password = ''", "$password = 's3 cret'")
+    subprocess.run(["pwsh", "-NoProfile", "-Command", block], env=env, check=True, capture_output=True)
+    profile = subprocess.run(["pwsh", "-NoProfile", "-Command", "$PROFILE"], env=env, capture_output=True, text=True).stdout.strip()
+    out = subprocess.run(["pwsh", "-NoProfile", "-Command", f". '{profile}'; sshdd"], env=env, capture_output=True, text=True).stdout.strip()
+    assert out == "ARGS -DefaultUserName myuser -DefaultSubnetPrefix 192.168.0 -DefaultCommentSuffix -[my-machine] -DefaultPassword s3 cret"

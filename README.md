@@ -27,7 +27,13 @@ bash ~/sshdd/sshdd.sh \
 
 ### Alias
 
-Paste this into your terminal (bash or zsh). Edit `user`, `subnet` and `suffix` first.
+Paste this into your terminal (bash or zsh).
+
+✏️ Edit these first:
+- `user`: default remote username
+- `subnet`: subnet prefix (`10` → `192.168.0.10`)
+- `suffix`: appended to key comments
+- `password`: optional; leave `''` and sshdd asks when it needs one
 
 ```bash
 (
@@ -36,6 +42,7 @@ Paste this into your terminal (bash or zsh). Edit `user`, `subnet` and `suffix` 
   user=myuser
   subnet=192.168.0
   suffix='-[my-machine]'
+  password=''
 
   case "$SHELL" in
     */zsh) rc="${ZDOTDIR:-$HOME}/.zshrc" ;;
@@ -50,12 +57,17 @@ Paste this into your terminal (bash or zsh). Edit `user`, `subnet` and `suffix` 
     run='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh)'
   fi
 
+  args="--user $user --subnet $subnet --comment-suffix \"$suffix\""
+  if [ -n "$password" ]; then
+    args="$args --password \"$password\""
+  fi
+
   touch "$rc"
   cp "$rc" "$rc.sshdd-bak"
   {
     awk '/^# >>> sshdd >>>/ {s=1} !s {print} /^# <<< sshdd <<</ {s=0}' "$rc.sshdd-bak"
     echo '# >>> sshdd >>>'
-    echo "alias sshdd='$run --user $user --subnet $subnet --comment-suffix \"$suffix\"'"
+    echo "alias sshdd='$run $args'"
     echo '# <<< sshdd <<<'
   } >| "$rc.sshdd-tmp"
   cat "$rc.sshdd-tmp" >| "$rc"
@@ -73,8 +85,9 @@ Paste this into your terminal (bash or zsh). Edit `user`, `subnet` and `suffix` 
 - **Safe to run again:** the alias sits between `# >>> sshdd >>>` and `# <<< sshdd <<<`; a rerun replaces that block
   instead of adding a second one. The old file is kept as `<rc>.sshdd-bak`, and a symlinked rc (dotfile manager)
   stays a symlink.
-- **No password in the alias:** an rc file is plain text. Leave `--password` out; sshdd asks when it needs one.
-- The values go inside single quotes, so they can't contain `'`.
+- **Password is optional:** a password you set is stored in plain text in the rc file. Left empty, sshdd asks.
+- Values can't contain `'`; the password also not `"`, `$`, `` ` `` or `\`.
+- No comments inside the block: zsh (the macOS default) runs a pasted `# …` as a command and the values end up empty.
 - Read pasted code before running it, this block included.
 
 Then run `sshdd` (extra options still pass through, e.g. `sshdd --verbose`).
@@ -114,15 +127,16 @@ git clone https://github.com/ahmadhadidi/sshdd.git $HOME\sshdd
 
 ### Alias
 
-Paste this into PowerShell. Edit `user`, `subnet` and `suffix` first.
+Paste this into PowerShell. ✏️ Edit the four values first.
 
 ```powershell
 & {
   $ErrorActionPreference = 'Stop'
 
-  $user   = 'myuser'
-  $subnet = '192.168.0'
-  $suffix = '-[my-machine]'
+  $user     = 'myuser'          # ✏️ Default remote username
+  $subnet   = '192.168.0'       # ✏️ Subnet prefix (10 → 192.168.0.10)
+  $suffix   = '-[my-machine]'   # ✏️ Appended to key comments
+  $password = ''                # ✏️ Optional: leave '' and sshdd asks (set, it's stored in plain text)
 
   $local = Join-Path (Join-Path $HOME 'sshdd') 'sshdd.ps1'
   if (Test-Path $local) {
@@ -131,6 +145,11 @@ Paste this into PowerShell. Edit `user`, `subnet` and `suffix` first.
   } else {
     $kind = 'cloud'
     $run  = '& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1")))'
+  }
+
+  $params = "-DefaultUserName '$user' -DefaultSubnetPrefix '$subnet' -DefaultCommentSuffix '$suffix'"
+  if ($password) {
+    $params += " -DefaultPassword '$password'"
   }
 
   New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
@@ -142,7 +161,7 @@ Paste this into PowerShell. Edit `user`, `subnet` and `suffix` first.
   $old = [regex]::Replace($old, '(?s)# >>> sshdd >>>.*?# <<< sshdd <<<\r?\n?', '')
   $block = @(
     '# >>> sshdd >>>'
-    "function sshdd { $run -DefaultUserName '$user' -DefaultSubnetPrefix '$subnet' -DefaultCommentSuffix '$suffix' @args }"
+    "function sshdd { $run $params @args }"
     '# <<< sshdd <<<'
   ) -join "`n"
   Set-Content -Path $PROFILE -Value ($old + $block + "`n") -NoNewline
@@ -153,7 +172,7 @@ Paste this into PowerShell. Edit `user`, `subnet` and `suffix` first.
 ```
 
 Same rules as bash: local if `$HOME\sshdd\sshdd.ps1` exists, else cloud; a rerun replaces the marked block (backup:
-`$PROFILE.sshdd-bak`); no password in the profile; values can't contain `'`. Windows only runs a profile when the
+`$PROFILE.sshdd-bak`); the password is optional (stored in plain text if set); values can't contain `'`. Windows only runs a profile when the
 execution policy allows it: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 Then run `sshdd`.
