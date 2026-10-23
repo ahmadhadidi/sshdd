@@ -83,6 +83,7 @@ def test_fuzz_host_entry(tmp_path_factory, text):
     assert not canary.exists(), "host text was executed"
 
 
+@pytest.mark.serial   # a timing check (paste within 20 s); 22.9 s under xdist load (#34)
 def test_paste_into_comment(tmp_path):
     """K6: an 800-char paste (an RSA-4096 public key is ~750) arrives whole. Input costs ~6 ms per
     character (bash read -n1 per key), so a 2 KB paste takes ~13 s: a known limit."""
