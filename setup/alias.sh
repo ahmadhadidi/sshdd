@@ -5,6 +5,7 @@
 #     [--user NAME] [--subnet PREFIX] [--comment-suffix STR] [--password PASS]
 #
 # Values not passed are asked for (Enter keeps the [default]); without a terminal the defaults are used.
+# Defaults come from this machine: whoami, the subnet of the IP on the default route, the short hostname.
 # rc file by login shell: zsh → ~/.zshrc ($ZDOTDIR), bash → ~/.bashrc, on macOS ~/.bash_profile.
 # Local alias if ~/sshdd/sshdd.sh exists, else the cloud one. A rerun replaces the marked block;
 # the old file is kept as <rc>.sshdd-bak.
@@ -15,9 +16,9 @@ user='' subnet='' suffix='' password='' got_user=0 got_subnet=0 got_suffix=0 got
 usage() {
   cat <<'EOF'
 Usage: bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/setup/alias.sh) [options]
-  --user NAME            default remote username       (asked if missing; default myuser)
-  --subnet PREFIX        subnet prefix, 10 → PREFIX.10 (default 192.168.0)
-  --comment-suffix STR   appended to key comments      (default -[my-machine])
+  --user NAME            default remote username       (asked if missing; default: whoami)
+  --subnet PREFIX        subnet prefix, 10 → PREFIX.10 (default: from your IP, else 192.168.0)
+  --comment-suffix STR   appended to key comments      (default: -[short hostname])
   --password PASS        optional; stored in plain text in the rc file (better: the hidden prompt)
 EOF
 }
@@ -41,10 +42,25 @@ done
 tty=0
 { : </dev/tty; } 2>/dev/null && tty=1
 
-ask() {   # ask VAR PROMPT DEFAULT
+# First three parts of this machine's IP on the default route (192.168.0.190 → 192.168.0), else 192.168.0.
+default_subnet() {
+  local ip='' ifc=''
+  if [ "$(uname)" = Darwin ]; then
+    ifc=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2}') || true
+    [ -z "$ifc" ] || ip=$(ipconfig getifaddr "$ifc" 2>/dev/null) || true
+  else
+    ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}') || true
+  fi
+  case $ip in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) echo "${ip%.*}" ;;
+    *)                           echo 192.168.0 ;;
+  esac
+}
+
+ask() {   # ask VAR PROMPT DEFAULT; the default in teal bold, like the app
   local ans=''
   if (( tty )); then
-    printf '%s [%s]: ' "$2" "$3" >/dev/tty
+    printf '%s [\033[1;36m%s\033[0m]: ' "$2" "$3" >/dev/tty
     IFS= read -r ans </dev/tty || ans=''
   fi
   printf -v "$1" '%s' "${ans:-$3}"
@@ -53,9 +69,10 @@ ask() {   # ask VAR PROMPT DEFAULT
 if (( tty )) && (( !got_user || !got_subnet || !got_suffix || !got_password )); then
   echo 'sshdd alias setup (Enter keeps the [default])' >/dev/tty
 fi
-(( got_user ))   || ask user   'Default remote username' myuser
-(( got_subnet )) || ask subnet 'Subnet prefix'           192.168.0
-(( got_suffix )) || ask suffix 'Key comment suffix'      '-[my-machine]'
+host=$(hostname -s 2>/dev/null || hostname)
+(( got_user ))   || ask user   'Default remote username' "$(whoami)"
+(( got_subnet )) || ask subnet 'Subnet prefix'           "$(default_subnet)"
+(( got_suffix )) || ask suffix 'Key comment suffix'      "-[${host%%.*}]"
 if (( !got_password && tty )); then
   printf 'SSH password (hidden, Enter = ask each time): ' >/dev/tty
   IFS= read -rs password </dev/tty || password=''

@@ -40,10 +40,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads
   --user myuser --subnet 192.168.0 --comment-suffix "-[my-machine]"
 ```
 
-✏️ The values:
-- `--user`: default remote username
-- `--subnet`: subnet prefix (`10` → `192.168.0.10`)
-- `--comment-suffix`: appended to key comments
+✏️ The values (the question's default, from your machine, in teal):
+- `--user`: default remote username (default: `whoami`)
+- `--subnet`: subnet prefix, `10` → `192.168.0.10` (default: your IP's first three parts, else `192.168.0`)
+- `--comment-suffix`: appended to key comments (default: `-[<short hostname>]`)
 - `--password`: optional. Better left to the hidden question: a flag stays in your shell history. Either way it's
   stored in plain text in the rc file; left empty, sshdd asks when it needs one.
 

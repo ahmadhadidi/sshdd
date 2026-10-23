@@ -4,6 +4,7 @@
 #     [-User NAME] [-Subnet PREFIX] [-CommentSuffix STR] [-Password PASS]
 #
 # Values not passed are asked for (Enter keeps the [default]); the password prompt is hidden.
+# Defaults come from this machine: your user name, the subnet of the IP on the default route, the short hostname.
 # Local if $HOME\sshdd\sshdd.ps1 exists, else the cloud script. A rerun replaces the marked block;
 # the old profile is kept as $PROFILE.sshdd-bak.
 param(
@@ -14,17 +15,35 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# The default in cyan, like the app; Enter keeps it.
 function Ask([string]$Prompt, [string]$Default) {
-    $a = Read-Host "$Prompt [$Default]"
+    Write-Host -NoNewline "$Prompt ["
+    Write-Host -NoNewline $Default -ForegroundColor Cyan
+    Write-Host -NoNewline ']: '
+    $a = [Console]::ReadLine()
     if ($a) { $a } else { $Default }
+}
+
+# First three parts of this machine's IP on the default route (192.168.0.190 -> 192.168.0), else 192.168.0.
+# Connecting a UDP socket only picks the route; nothing is sent.
+function Get-DefaultSubnet {
+    try {
+        $s = [System.Net.Sockets.Socket]::new('InterNetwork', 'Dgram', 'Udp')
+        $s.Connect('1.1.1.1', 53)
+        $ip = $s.LocalEndPoint.Address.ToString()
+        $s.Dispose()
+        if ($ip -match '^(\d+\.\d+\.\d+)\.\d+$' -and $ip -ne '0.0.0.0') { return $Matches[1] }
+    } catch { }
+    '192.168.0'
 }
 
 $asking = -not ($PSBoundParameters.ContainsKey('User') -and $PSBoundParameters.ContainsKey('Subnet') -and
                 $PSBoundParameters.ContainsKey('CommentSuffix') -and $PSBoundParameters.ContainsKey('Password'))
 if ($asking) { 'sshdd alias setup (Enter keeps the [default])' }
-if (-not $PSBoundParameters.ContainsKey('User'))          { $User          = Ask 'Default remote username' 'myuser' }
-if (-not $PSBoundParameters.ContainsKey('Subnet'))        { $Subnet        = Ask 'Subnet prefix' '192.168.0' }
-if (-not $PSBoundParameters.ContainsKey('CommentSuffix')) { $CommentSuffix = Ask 'Key comment suffix' '-[my-machine]' }
+$hostShort = [Environment]::MachineName.Split('.')[0]
+if (-not $PSBoundParameters.ContainsKey('User'))          { $User          = Ask 'Default remote username' ([Environment]::UserName) }
+if (-not $PSBoundParameters.ContainsKey('Subnet'))        { $Subnet        = Ask 'Subnet prefix' (Get-DefaultSubnet) }
+if (-not $PSBoundParameters.ContainsKey('CommentSuffix')) { $CommentSuffix = Ask 'Key comment suffix' "-[$hostShort]" }
 if (-not $PSBoundParameters.ContainsKey('Password')) {
     $secure   = Read-Host 'SSH password (hidden, Enter = ask each time)' -AsSecureString
     $Password = [System.Net.NetworkCredential]::new('', $secure).Password
