@@ -27,24 +27,42 @@ bash ~/sshdd/sshdd.sh \
 
 ### Alias
 
-Paste this into your terminal (bash or zsh). Edit the three values on the first line first.
+Paste this into your terminal (bash or zsh). Edit `user`, `subnet` and `suffix` first.
 
 ```bash
 (
-  user=myuser subnet=192.168.0 suffix='-[my-machine]'
+  set -e
+
+  user=myuser
+  subnet=192.168.0
+  suffix='-[my-machine]'
+
   case "$SHELL" in
     */zsh) rc="${ZDOTDIR:-$HOME}/.zshrc" ;;
-    *) if [ "$(uname)" = Darwin ]; then rc="$HOME/.bash_profile"; else rc="$HOME/.bashrc"; fi ;;
+    *)     [ "$(uname)" = Darwin ] && rc="$HOME/.bash_profile" || rc="$HOME/.bashrc" ;;
   esac
-  if [ -f "$HOME/sshdd/sshdd.sh" ]; then kind=local run='bash ~/sshdd/sshdd.sh'
-  else kind=cloud run='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh)'; fi
-  touch "$rc" && cp "$rc" "$rc.sshdd-bak" &&
-  awk '/^# >>> sshdd >>>/{s=1} !s{print} /^# <<< sshdd <<</{s=0}' "$rc.sshdd-bak" >| "$rc.sshdd-tmp" &&
-  printf '%s\n' '# >>> sshdd >>>' \
-    "alias sshdd='$run --user $user --subnet $subnet --comment-suffix \"$suffix\"'" \
-    '# <<< sshdd <<<' >> "$rc.sshdd-tmp" &&
-  cat "$rc.sshdd-tmp" >| "$rc" && rm -f "$rc.sshdd-tmp" &&
-  echo "sshdd alias ($kind) written to $rc (backup: $rc.sshdd-bak). Open a new terminal."
+
+  if [ -f "$HOME/sshdd/sshdd.sh" ]; then
+    kind=local
+    run='bash ~/sshdd/sshdd.sh'
+  else
+    kind=cloud
+    run='bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.sh)'
+  fi
+
+  touch "$rc"
+  cp "$rc" "$rc.sshdd-bak"
+  {
+    awk '/^# >>> sshdd >>>/ {s=1} !s {print} /^# <<< sshdd <<</ {s=0}' "$rc.sshdd-bak"
+    echo '# >>> sshdd >>>'
+    echo "alias sshdd='$run --user $user --subnet $subnet --comment-suffix \"$suffix\"'"
+    echo '# <<< sshdd <<<'
+  } >| "$rc.sshdd-tmp"
+  cat "$rc.sshdd-tmp" >| "$rc"
+  rm -f "$rc.sshdd-tmp"
+
+  echo "sshdd alias ($kind) written to $rc"
+  echo "Backup: $rc.sshdd-bak. Open a new terminal."
 )
 ```
 
@@ -96,20 +114,41 @@ git clone https://github.com/ahmadhadidi/sshdd.git $HOME\sshdd
 
 ### Alias
 
-Paste this into PowerShell. Edit the three values on the first line first.
+Paste this into PowerShell. Edit `user`, `subnet` and `suffix` first.
 
 ```powershell
 & {
-  $user = 'myuser'; $subnet = '192.168.0'; $suffix = '-[my-machine]'
+  $ErrorActionPreference = 'Stop'
+
+  $user   = 'myuser'
+  $subnet = '192.168.0'
+  $suffix = '-[my-machine]'
+
   $local = Join-Path (Join-Path $HOME 'sshdd') 'sshdd.ps1'
-  if (Test-Path $local) { $kind = 'local'; $run = "& '$local'" }
-  else { $kind = 'cloud'; $run = '& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1")))' }
+  if (Test-Path $local) {
+    $kind = 'local'
+    $run  = "& '$local'"
+  } else {
+    $kind = 'cloud'
+    $run  = '& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/sshdd.ps1")))'
+  }
+
   New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
-  $old = if (Test-Path $PROFILE) { [string](Get-Content -Raw $PROFILE); Copy-Item $PROFILE "$PROFILE.sshdd-bak" } else { '' }
+  $old = ''
+  if (Test-Path $PROFILE) {
+    $old = [string](Get-Content -Raw $PROFILE)
+    Copy-Item $PROFILE "$PROFILE.sshdd-bak"
+  }
   $old = [regex]::Replace($old, '(?s)# >>> sshdd >>>.*?# <<< sshdd <<<\r?\n?', '')
-  $block = "# >>> sshdd >>>`nfunction sshdd { $run -DefaultUserName '$user' -DefaultSubnetPrefix '$subnet' -DefaultCommentSuffix '$suffix' @args }`n# <<< sshdd <<<`n"
-  Set-Content -Path $PROFILE -Value ($old + $block) -NoNewline
-  "sshdd function ($kind) written to $PROFILE. Open a new PowerShell window."
+  $block = @(
+    '# >>> sshdd >>>'
+    "function sshdd { $run -DefaultUserName '$user' -DefaultSubnetPrefix '$subnet' -DefaultCommentSuffix '$suffix' @args }"
+    '# <<< sshdd <<<'
+  ) -join "`n"
+  Set-Content -Path $PROFILE -Value ($old + $block + "`n") -NoNewline
+
+  "sshdd function ($kind) written to $PROFILE"
+  "Backup: $PROFILE.sshdd-bak. Open a new PowerShell window."
 }
 ```
 

@@ -6,7 +6,7 @@ category: docs
 creator: Ahmad
 created: 2026-10-22 19:11
 kind: todo
-latest: '10-22: README Alias sections: paste-in installers (bash/zsh + PowerShell) replace the hand-written aliases; tests/test_readme_alias.py runs them from the…'
+latest: '10-23: Installer blocks reformatted (one step per line; bash subshell + set -e, PS & {} + ErrorActionPreference Stop); approved by Ahmad 2026-10-23.'
 description: A README script that adds the sshdd alias (cloud or local, by what's on the laptop) to the right rc file (~/.zshrc on a Mac, ~/.bashrc otherwise), following best practice. (2026-10-22)
 ---
 ## Updates
@@ -18,3 +18,5 @@ description: A README script that adds the sshdd alias (cloud or local, by what'
 - PowerShell version too, same rules ($PROFILE).
 - **Started 2026-10-22.**
 - **Ready for review 2026-10-22.** README Alias sections: paste-in installers (bash/zsh + PowerShell) replace the hand-written aliases; tests/test_readme_alias.py runs them from the README. zsh itself not installed here: the zsh path is tested only for the file it picks.
+- **Started 2026-10-22.** Ahmad 2026-10-22: format the installer blocks to read nicer; bash version approved (subshell kept: set -e can't close the terminal).
+- **Ready for review 2026-10-23.** Installer blocks reformatted (one step per line; bash subshell + set -e, PS & {} + ErrorActionPreference Stop); approved by Ahmad 2026-10-23.
