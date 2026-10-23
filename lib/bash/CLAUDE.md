@@ -169,7 +169,7 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 ### menu-support.sh
 
 - `_sq`:13 — single-quote a value for shell command strings (bash 3.2-safe); escapes embedded `'` as `'\''`
-- `_run_conf_editor`:63 — inline TUI for editing DEFAULT_USER/SUBNET/COMMENT_SUFFIX/PASSWORD; shows 4 copy-paste launch commands with current flag values
+- `_run_conf_editor`:63 — inline TUI for editing DEFAULT_USER/SUBNET/COMMENT_SUFFIX/PASSWORD; shows the 2 `setup/alias` one-liners ("To persist", #31) and 4 run-once launch commands with the current values, every value single-quoted for its shell; rows via `_conf_line` / `_conf_cmd` (label + `_conf_wrap`)
 - `_show_menu_help`:174 — paginated help text describing every menu item
 
 ### menu-renderer.sh

@@ -59,6 +59,21 @@ _conf_wrap() {
 
 # ─── Conf defaults editor ─────────────────────────────────────────────────────
 
+# Rows of the Conf Defaults screen; append to the caller's cf at _cur_row (bash dynamic scope), never past TERM_H.
+_conf_line() {   # _conf_line TEXT (printf escapes allowed)
+    (( _cur_row >= TERM_H )) && return 0
+    cf+="$(printf "\\e[%d;1H${1}\\e[K" "$_cur_row")"; (( _cur_row++ )) || true
+}
+_conf_cmd() {    # _conf_cmd LABEL COMMAND CONTINUATION-CHAR COLOR
+    local _ln
+    _conf_line "  \\e[90m${1}\\e[0m"
+    _conf_wrap "$2" "$3" "$TERM_W" "    " "        "
+    for _ln in "${_WRAP_LINES[@]}"; do
+        (( _cur_row >= TERM_H )) && break
+        cf+="$(printf '\e[%d;1H\e[%sm%s\e[0m\e[K' "$_cur_row" "$4" "$_ln")"; (( _cur_row++ )) || true
+    done
+}
+
 # Inline TUI editor for Global Defaults.
 _run_conf_editor() {
     local -a field_names=( DEFAULT_USER DEFAULT_SUBNET_PREFIX DEFAULT_COMMENT_SUFFIX DEFAULT_PASSWORD )
@@ -97,47 +112,26 @@ _run_conf_editor() {
                 cf+="$(printf '  \e[0;97m    %s  \e[90m%s\e[0m\e[K' "${field_labels[$i]}" "$disp")"
             fi
         done
-        # ── Persist commands (4 methods) ─────────────────────────────────────
+        # ── Persist (setup/alias one-liners, #31) and run-once commands ──────
         local _raw_url="https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main"
-        local _bf="" _pf=""   # bash flags, powershell flags
-        [[ -n $DEFAULT_USER           ]] && _bf+=" --user $(_sq "$DEFAULT_USER")"            && _pf+=" -DefaultUserName \"$DEFAULT_USER\""
-        [[ -n $DEFAULT_SUBNET_PREFIX  ]] && _bf+=" --subnet $(_sq "$DEFAULT_SUBNET_PREFIX")" && _pf+=" -DefaultSubnetPrefix \"$DEFAULT_SUBNET_PREFIX\""
-        [[ -n $DEFAULT_COMMENT_SUFFIX ]] && _bf+=" --comment-suffix $(_sq "$DEFAULT_COMMENT_SUFFIX")" && _pf+=" -DefaultCommentSuffix \"$DEFAULT_COMMENT_SUFFIX\""
-        [[ -n $DEFAULT_PASSWORD       ]] && _bf+=" --password $(_sq "$DEFAULT_PASSWORD")"    && _pf+=" -DefaultPassword \"$DEFAULT_PASSWORD\""
-        local _c1="bash <(curl -fsSL ${_raw_url}/sshdd.sh)${_bf}"
-        local _c2="bash sshdd.sh${_bf}"
-        local _c3="\$sb=[scriptblock]::Create((irm \"${_raw_url}/sshdd.ps1\")); & \$sb${_pf}"
-        local _c4="& ./sshdd.ps1${_pf}"
-        # Wrap each command with OS-appropriate continuation characters
-        local _ln _cur_row=$(( _conf_top + ${#field_names[@]} + 1 ))
-        cf+="$(printf '\e[%d;1H\e[K' "$_cur_row")"; (( _cur_row++ ))
-        cf+="$(printf '\e[%d;1H  \e[90mTo persist across sessions:\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
-        cf+="$(printf '\e[%d;1H\e[K' "$_cur_row")"; (( _cur_row++ ))
-        cf+="$(printf '\e[%d;1H  \e[90m☁️  Bash · cloud\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
-        _conf_wrap "$_c1" "\\" "$TERM_W" "    " "        "
-        for _ln in "${_WRAP_LINES[@]}"; do
-            (( _cur_row >= TERM_H )) && break
-            cf+="$(printf '\e[%d;1H\e[33m%s\e[0m\e[K' "$_cur_row" "$_ln")"; (( _cur_row++ ))
-        done
-        cf+="$(printf '\e[%d;1H  \e[90m🏠  Bash · local\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
-        _conf_wrap "$_c2" "\\" "$TERM_W" "    " "        "
-        for _ln in "${_WRAP_LINES[@]}"; do
-            (( _cur_row >= TERM_H )) && break
-            cf+="$(printf '\e[%d;1H\e[33m%s\e[0m\e[K' "$_cur_row" "$_ln")"; (( _cur_row++ ))
-        done
-        cf+="$(printf '\e[%d;1H\e[K' "$_cur_row")"; (( _cur_row++ ))
-        cf+="$(printf '\e[%d;1H  \e[90m☁️  PowerShell · cloud\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
-        _conf_wrap "$_c3" '`' "$TERM_W" "    " "        "
-        for _ln in "${_WRAP_LINES[@]}"; do
-            (( _cur_row >= TERM_H )) && break
-            cf+="$(printf '\e[%d;1H\e[36m%s\e[0m\e[K' "$_cur_row" "$_ln")"; (( _cur_row++ ))
-        done
-        cf+="$(printf '\e[%d;1H  \e[90m🏠  PowerShell · local\e[0m\e[K' "$_cur_row")"; (( _cur_row++ ))
-        _conf_wrap "$_c4" '`' "$TERM_W" "    " "        "
-        for _ln in "${_WRAP_LINES[@]}"; do
-            (( _cur_row >= TERM_H )) && break
-            cf+="$(printf '\e[%d;1H\e[36m%s\e[0m\e[K' "$_cur_row" "$_ln")"; (( _cur_row++ ))
-        done
+        local _bf="" _pf="" _sf=""   # bash flags, powershell flags, setup/alias.ps1 parameters
+        local _q="'"                 # PowerShell single quotes: ' inside becomes ''
+        [[ -n $DEFAULT_USER           ]] && _bf+=" --user $(_sq "$DEFAULT_USER")"            && _pf+=" -DefaultUserName '${DEFAULT_USER//$_q/$_q$_q}'"        && _sf+=" -User '${DEFAULT_USER//$_q/$_q$_q}'"
+        [[ -n $DEFAULT_SUBNET_PREFIX  ]] && _bf+=" --subnet $(_sq "$DEFAULT_SUBNET_PREFIX")" && _pf+=" -DefaultSubnetPrefix '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'" && _sf+=" -Subnet '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'"
+        [[ -n $DEFAULT_COMMENT_SUFFIX ]] && _bf+=" --comment-suffix $(_sq "$DEFAULT_COMMENT_SUFFIX")" && _pf+=" -DefaultCommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'" && _sf+=" -CommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'"
+        [[ -n $DEFAULT_PASSWORD       ]] && _bf+=" --password $(_sq "$DEFAULT_PASSWORD")"    && _pf+=" -DefaultPassword '${DEFAULT_PASSWORD//$_q/$_q$_q}'"     && _sf+=" -Password '${DEFAULT_PASSWORD//$_q/$_q$_q}'"
+        local _cur_row=$(( _conf_top + ${#field_names[@]} + 1 ))
+        _conf_line ''
+        _conf_line '  \e[90mTo persist across sessions (adds an sshdd alias):\e[0m'
+        _conf_line ''
+        _conf_cmd '🐚  macOS / Linux' "bash <(curl -fsSL ${_raw_url}/setup/alias.sh)${_bf}" '\' 33
+        _conf_cmd '🪟  Windows (PowerShell)' "& ([scriptblock]::Create((irm ${_raw_url}/setup/alias.ps1)))${_sf}" '`' 36
+        _conf_line ''
+        _conf_line '  \e[90mRun once:\e[0m'
+        _conf_cmd '☁️  Bash · cloud' "bash <(curl -fsSL ${_raw_url}/sshdd.sh)${_bf}" '\' 33
+        _conf_cmd '🏠  Bash · local' "bash sshdd.sh${_bf}" '\' 33
+        _conf_cmd '☁️  PowerShell · cloud' "\$sb=[scriptblock]::Create((irm \"${_raw_url}/sshdd.ps1\")); & \$sb${_pf}" '`' 36
+        _conf_cmd '🏠  PowerShell · local' "& ./sshdd.ps1${_pf}" '`' 36
 
         local hint="  Up/Dn navigate   Enter edit   Q back  "
         local hpad; hpad=$(_repeat ' ' "$(( TERM_W - ${#hint} > 0 ? TERM_W - ${#hint} : 0 ))")

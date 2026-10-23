@@ -128,7 +128,7 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 - `_MenuDeleteLocalKey`:201 — cross-references key against configured hosts, optionally removes from remote(s), then deletes local key files
 - `_MenuRemoveKeyFromConfig`:247 — picks host then IdentityFile entry, removes that line from the config block
 - `_MenuShowBestPractices`:273 — prints the 4-rule key-naming guide (LAN shared vs WAN individual); no interactive input
-- `_MenuConfDefaults`:283 — inline TUI for editing DEFAULT_* globals; shows 4 copy-paste launch commands; returns `$true` to skip `Wait-UserAcknowledge`
+- `_MenuConfDefaults`:283 — inline TUI for editing DEFAULT_* globals; shows the 2 `setup/alias` one-liners ("To persist", #31) and 4 run-once launch commands, values single-quoted, wrapped by `_ConfCmd` (mirrors bash `_conf_wrap`); returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuRemoveHost`:381 — delegates to `Remove-HostFromSSHConfig`
 - `_MenuViewConfig`:385 — calls `Show-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuEditConfig`:390 — calls `Edit-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`

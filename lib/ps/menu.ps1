@@ -290,6 +290,24 @@ function _MenuShowBestPractices {    # choice 10 — 4-rule key-naming guide; no
     Write-Out 'error' "4. CTs accessed over the WAN   -> individual key (e.g. sonarr-wan)"
 }
 
+# A command for the Conf Defaults screen: its label, then the command wrapped to the width at spaces with the
+# shell's continuation character (bash: \, PowerShell: `), like bash's _conf_wrap. Returns display lines.
+function _ConfCmd([string]$Label, [string]$Cmd, [string]$Cont, [int]$Color, [int]$Cols) {
+    $out = @("  `e[90m$Label`e[0m")
+    $rem = $Cmd; $pfx = '    '
+    while ($rem.Length -gt 0) {
+        $avail = $Cols - $pfx.Length
+        if ($rem.Length -le $avail) { $out += "$pfx`e[${Color}m$rem`e[0m"; break }
+        $max = [Math]::Max(1, $avail - 1 - $Cont.Length)
+        $sp = $rem.Substring(0, [Math]::Min($max, $rem.Length)).LastIndexOf(' ')
+        $cut = if ($sp -gt 0) { $sp } else { $max }
+        $out += "$pfx`e[${Color}m$($rem.Substring(0, $cut)) $Cont`e[0m"
+        $rem = $rem.Substring($cut).TrimStart(' ')
+        $pfx = '        '
+    }
+    $out
+}
+
 function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFAULT_* globals; shows 4 copy-paste launch commands
     $fieldDefs = @(
         @{ Name = "DefaultUserName";      Label = "Default Username      " }
@@ -326,40 +344,34 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
             }
         }
 
-        # ── Persist commands (4 methods) ────────────────────────────────────
+        # ── Persist (setup/alias one-liners, #31) and run-once commands ─────
         $rawUrl = "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main"
-        $bf = ""; $pf = ""
+        $bf = ""; $pf = ""; $sf = ""   # bash flags, sshdd.ps1 flags, setup/alias.ps1 parameters
         $uVal = (Get-Variable -Name "DefaultUserName"      -Scope Script -EA SilentlyContinue).Value
         $sVal = (Get-Variable -Name "DefaultSubnetPrefix"  -Scope Script -EA SilentlyContinue).Value
         $cVal = (Get-Variable -Name "DefaultCommentSuffix" -Scope Script -EA SilentlyContinue).Value
         $pVal = (Get-Variable -Name "DefaultPassword"      -Scope Script -EA SilentlyContinue).Value
-        if ($uVal) { $bf += " --user `"$uVal`"";           $pf += " -DefaultUserName `"$uVal`"" }
-        if ($sVal) { $bf += " --subnet `"$sVal`"";         $pf += " -DefaultSubnetPrefix `"$sVal`"" }
-        if ($cVal) { $bf += " --comment-suffix `"$cVal`""; $pf += " -DefaultCommentSuffix `"$cVal`"" }
-        if ($pVal) { $bf += " --password `"$pVal`"";       $pf += " -DefaultPassword `"$pVal`"" }
+        # Single-quoted so any value pastes safely: PowerShell doubles ', bash closes and reopens ('\'').
+        $q  = { param($v) "'" + $v.Replace("'", "''") + "'" }
+        $bq = { param($v) "'" + $v.Replace("'", "'\''") + "'" }
+        if ($uVal) { $bf += " --user $(& $bq $uVal)";           $pf += " -DefaultUserName $(& $q $uVal)";      $sf += " -User $(& $q $uVal)" }
+        if ($sVal) { $bf += " --subnet $(& $bq $sVal)";         $pf += " -DefaultSubnetPrefix $(& $q $sVal)";  $sf += " -Subnet $(& $q $sVal)" }
+        if ($cVal) { $bf += " --comment-suffix $(& $bq $cVal)"; $pf += " -DefaultCommentSuffix $(& $q $cVal)"; $sf += " -CommentSuffix $(& $q $cVal)" }
+        if ($pVal) { $bf += " --password $(& $bq $pVal)";       $pf += " -DefaultPassword $(& $q $pVal)";      $sf += " -Password $(& $q $pVal)" }
 
-        $maxCw = $tw - 6
-        $c1 = "bash <(curl -fsSL $rawUrl/sshdd.sh)$bf"
-        $c2 = "bash sshdd.sh$bf"
-        $c3 = "`$sb=[scriptblock]::Create((irm `"$rawUrl/sshdd.ps1`")); & `$sb$pf"
-        $c4 = "& ./sshdd.ps1$pf"
-        if ($c1.Length -gt $maxCw) { $c1 = $c1.Substring(0, $maxCw - 3) + "..." }
-        if ($c2.Length -gt $maxCw) { $c2 = $c2.Substring(0, $maxCw - 3) + "..." }
-        if ($c3.Length -gt $maxCw) { $c3 = $c3.Substring(0, $maxCw - 3) + "..." }
-        if ($c4.Length -gt $maxCw) { $c4 = $c4.Substring(0, $maxCw - 3) + "..." }
-
-        $cf += "`e[11;1H`e[K"
-        $cf += "`e[12;1H  `e[90mTo persist across sessions:`e[0m`e[K"
-        $cf += "`e[13;1H`e[K"
-        $cf += "`e[14;1H  `e[90m`u{2601}`u{FE0F}  Bash `u{00B7} cloud`e[0m`e[K"
-        $cf += "`e[15;1H    `e[33m$c1`e[0m`e[K"
-        $cf += "`e[16;1H  `e[90m`u{1F3E0}  Bash `u{00B7} local`e[0m`e[K"
-        $cf += "`e[17;1H    `e[33m$c2`e[0m`e[K"
-        $cf += "`e[18;1H`e[K"
-        $cf += "`e[19;1H  `e[90m`u{2601}`u{FE0F}  PowerShell `u{00B7} cloud`e[0m`e[K"
-        $cf += "`e[20;1H    `e[36m$c3`e[0m`e[K"
-        $cf += "`e[21;1H  `e[90m`u{1F3E0}  PowerShell `u{00B7} local`e[0m`e[K"
-        $cf += "`e[22;1H    `e[36m$c4`e[0m`e[K"
+        $lines = @('', "  `e[90mTo persist across sessions (adds an sshdd alias):`e[0m", '')
+        $lines += _ConfCmd "`u{1F41A}  macOS / Linux" "bash <(curl -fsSL $rawUrl/setup/alias.sh)$bf" '\' 33 $tw
+        $lines += _ConfCmd "`u{1FA9F}  Windows (PowerShell)" "& ([scriptblock]::Create((irm $rawUrl/setup/alias.ps1)))$sf" '`' 36 $tw
+        $lines += @('', "  `e[90mRun once:`e[0m")
+        $lines += _ConfCmd "`u{2601}`u{FE0F}  Bash `u{00B7} cloud" "bash <(curl -fsSL $rawUrl/sshdd.sh)$bf" '\' 33 $tw
+        $lines += _ConfCmd "`u{1F3E0}  Bash `u{00B7} local" "bash sshdd.sh$bf" '\' 33 $tw
+        $lines += _ConfCmd "`u{2601}`u{FE0F}  PowerShell `u{00B7} cloud" "`$sb=[scriptblock]::Create((irm `"$rawUrl/sshdd.ps1`")); & `$sb$pf" '`' 36 $tw
+        $lines += _ConfCmd "`u{1F3E0}  PowerShell `u{00B7} local" "& ./sshdd.ps1$pf" '`' 36 $tw
+        $row = 11
+        foreach ($l in $lines) {
+            if ($row -ge $th) { break }
+            $cf += "`e[$row;1H$l`e[K"; $row++
+        }
 
         $hint = "  Up/Dn  navigate     Enter  edit     Q  back  "
         $cf += "`e[$th;1H`e[7m$hint$(" " * [Math]::Max(0, $tw - $hint.Length))`e[0m"
@@ -387,7 +399,7 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
     [Console]::Write("`e[?25h")
     Write-Host ""
     Write-Out 'ok'   "Defaults updated for this session."
-    Write-Out 'warn' "To persist: pass as script parameters (-DefaultUserName, etc.)"
+    Write-Out 'warn' "To persist: run the setup line shown on that screen (adds an sshdd alias)."
     return $true
 }
 
