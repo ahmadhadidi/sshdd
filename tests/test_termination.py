@@ -82,7 +82,14 @@ def test_cleanup_on_termination(shell, how, where):
     elif how == "ctrl-z":
         shell.sendcontrol("z")
     else:
-        os.kill(_pid(marker), signal.SIGTERM if how == "sigterm" else signal.SIGHUP)
+        pid = _pid(marker)
+        try:
+            os.kill(pid, signal.SIGTERM if how == "sigterm" else signal.SIGHUP)
+        except ProcessLookupError:
+            # #32: seen once under xdist (sshdd gone before the signal); the process list should name the cause.
+            ps = subprocess.run(["ps", "-eo", "pid,ppid,sid,stat,etimes,args"], capture_output=True, text=True).stdout
+            raise AssertionError(f"sshdd (pid {pid}, marker {marker}) was gone before the signal:\n" + "\n".join(
+                l for l in ps.splitlines() if "sshdd" in l or "PID" in l) + "\nlast output:\n" + shell.before[-500:])
     _assert_clean(shell, before)
     assert _pid(marker) is None, "sshdd still running"
 
