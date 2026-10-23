@@ -9,6 +9,7 @@ A terminal-based SSH key manager with an interactive TUI (Text User Interface). 
 Two parallel implementations exist:
 - `sshdd.sh` — macOS (bash 3.2), entry point (~47 lines); logic lives in `lib/bash/`
 - `sshdd.ps1` — Windows (PowerShell 5+), entry point (~47 lines); logic lives in `lib/ps/`
+- `setup/alias.sh`, `setup/alias.ps1` — the README's one-line alias installers (asks for values not passed; tests: `tests/test_setup_alias.py`)
 
 Full spec: `docs/PRD.md`.
 

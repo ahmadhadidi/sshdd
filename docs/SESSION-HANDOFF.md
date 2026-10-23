@@ -54,3 +54,10 @@ Status: done (in Review, waiting for Ahmad); not pushed
 - #26: U+009D at a text prompt blanked the screen (read -n1 read bytes); fixed via _wait_key.
 - #25: tests run in parallel (pytest-xdist): hook ~20 min → ~2.5 min. Hook is .git/hooks/pre-commit (untracked).
   Lesson #27 → claude-init skill parallel-test-suite.
+
+## 2026-10-23 — TODO #29 alias setup scripts
+
+Status: done (in Review, waiting for Ahmad)
+- README "Alias" is now one cloud line per OS running `setup/alias.sh` / `setup/alias.ps1`; flags optional, missing
+  values asked (Enter = default), password hidden. Answers in the #29 note. Replaces #24's paste-in blocks.
+- #28 Ctrl+\ ignored; #20 address prompt empty (Ahmad's change). All pushed except #29.
