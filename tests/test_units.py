@@ -66,6 +66,18 @@ def test_replace_host_block_delete_keeps_others(tmp_path, engine):
     assert cfg.read_text() == OTHER + "Host z\n    HostName 3.3.3.3\n"
 
 
+@pytest.mark.parametrize("new", ["Host a\n    HostName 1.1.1.1", ""], ids=["edit", "delete"])
+@pytest.mark.parametrize("engine", ["perl", "python3"])
+def test_replace_host_block_whole_lines_only(tmp_path, engine, new):
+    """#36 (found by test_properties): block "host a" also starts the earlier "host a0"; the edit must hit "a"."""
+    cfg = tmp_path / "config"
+    cfg.write_text("host a0\nhost a\n")
+    r = bash('_replace_host_block "$OLD" "$NEW"; echo rc=$?', env={"SSH_CONFIG": str(cfg), "OLD": "host a", "NEW": new},
+             path=None if engine == "perl" else _no_perl_path(tmp_path))
+    assert "rc=0" in r.stdout, r.stdout + r.stderr
+    assert cfg.read_text() == "host a0\n" + (new + "\n" if new else "")
+
+
 # ── U3: _sq quotes anything for a shell ───────────────────────────────────────
 
 @FAST

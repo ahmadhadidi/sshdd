@@ -176,11 +176,13 @@ _replace_host_block() {
     local old_block="$1" new_block="${2:-}"
     # Write through the file (cat >), never perl -i: -i replaces a symlinked config (dotfile
     # managers) with a plain file, so the real config stopped getting edits (plan E2).
+    # Whole lines only: matched anywhere, block "host a" hit the start of an earlier "host a0" and the
+    # edit damaged that block (#36).
     if command -v perl &>/dev/null; then
         local _tmp
         _mktemp_reg _tmp .sshdd-cfg 2>/dev/null || _tmp=$(mktemp)
         if _SSHDD_OLD="$old_block" _SSHDD_NEW="$new_block" perl -0777 -pe \
-            'BEGIN { $o = $ENV{_SSHDD_OLD}; $n = $ENV{_SSHDD_NEW} } $n eq "" ? s/\Q$o\E\n?// : s/\Q$o\E/$n/' \
+            'BEGIN { $o = $ENV{_SSHDD_OLD}; $n = $ENV{_SSHDD_NEW} } $n eq "" ? s/^\Q$o\E(?:\n|\z)//m : s/^\Q$o\E(?=\n|\z)/$n/m' \
             "$SSH_CONFIG" > "$_tmp" 2>/dev/null && cat "$_tmp" > "$SSH_CONFIG"; then
             rm -f "$_tmp"; return 0
         fi
@@ -188,11 +190,10 @@ _replace_host_block() {
     fi
     if command -v python3 &>/dev/null; then
         _SSHDD_OLD="$old_block" _SSHDD_NEW="$new_block" python3 -c '
-import os, sys
+import os, re, sys
 f = sys.argv[1]; s = open(f).read(); o = os.environ["_SSHDD_OLD"]; n = os.environ["_SSHDD_NEW"]
-if not n and o + "\n" in s:
-    o += "\n"          # deleting: take the trailing newline of the block too
-open(f, "w").write(s.replace(o, n, 1))
+end = r"(?:\n|\Z)" if not n else r"(?=\n|\Z)"     # deleting: take the trailing newline of the block too
+open(f, "w").write(re.sub(r"(?m)^" + re.escape(o) + end, lambda m: n, s, count=1))
 ' "$SSH_CONFIG" 2>/dev/null && return 0
     fi
     return 1
