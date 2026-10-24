@@ -18,7 +18,7 @@ SCREENS = {
     "P": "Promote Key", "Z": "List Authorized Keys", "N": "Add Config Block", "W": "Generate Local SSH Key",
     "L": "List", "A": "Append Hostname", "X": "Delete Local SSH Key", "R": "Remove Config",
     "M": "Import Key", "H": "Remove Host", "V": "View",
-    "O": "List Known Hosts on Remote", "B": "Forget Host Key on Remote", "K": "List Known Hosts", "F": "Forget Host Key",
+    "O": "List Known Hosts on Remote", "B": "Forget Host Key on Remote", "K": "List Known Hosts", "F": "Forget Host Key", "S": "Edit Known Hosts",
     "\x1bOP": "Best Practices", "\x1b[15~": "Conf: Global Defaults",
 }
 

@@ -34,6 +34,7 @@ MENU_MAPPING = [
     ("M", "Import Key"),
     ("K", "List Known Hosts"),
     ("F", "Forget Host Key"),
+    ("S", "Edit Known Hosts"),
     ("H", "Remove Host"),
     ("V", "View Config"),
     ("E", "Edit Config"),
@@ -43,7 +44,7 @@ MENU_MAPPING = [
 # and the menu reappears without any extra key press.
 # L (List Keys) and V (View Config) have their own interactive pagers that
 # need an ESC/Q to exit — they are NOT in this set.
-RETURNS_IMMEDIATELY = {"E"}
+RETURNS_IMMEDIATELY = {"E", "S"}   # S: Edit Known Hosts, same editor path
 
 
 def test_full_menu_hotkey_loop(run_tui):

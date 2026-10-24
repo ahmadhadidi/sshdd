@@ -42,6 +42,7 @@ invoke_menu_choice() {
         20) _menu_forget_host_key ;;
         21) _menu_list_remote_known_hosts ;;
         22) _menu_forget_remote_host_key ;;
+        23) _menu_edit_known_hosts ;;
     esac
 }
 
@@ -368,6 +369,11 @@ _menu_view_config() {            # choice 13
 
 _menu_edit_config() {            # choice 14
     edit_ssh_config_file
+    return 1
+}
+
+_menu_edit_known_hosts() {       # choice 23 (#37) — local ~/.ssh/known_hosts in $EDITOR
+    edit_ssh_config_file "$SSH_DIR/known_hosts"
     return 1
 }
 

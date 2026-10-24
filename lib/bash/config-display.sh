@@ -114,9 +114,10 @@ show_ssh_config_file() {
     printf '\e[?25h'
 }
 
-edit_ssh_config_file() {
-    if [[ ! -f "$SSH_CONFIG" ]]; then
-        printf '  \e[31mSSH config not found at %s\e[0m\n' "$SSH_CONFIG"
+edit_ssh_config_file() {   # [FILE] — default ~/.ssh/config; Edit Known Hosts passes known_hosts (#37)
+    local file="${1:-$SSH_CONFIG}"
+    if [[ ! -f "$file" ]]; then
+        _out error '%s not found' "$file"     # error: stays on screen until a key (sets _OP_ERROR)
         return
     fi
 
@@ -136,7 +137,7 @@ edit_ssh_config_file() {
     [[ -z $editor ]] && editor="vi"
 
     printf '  \e[90mOpening in %s...\e[0m\n' "$editor"
-    sh -c "$editor \"\$1\"" sh "$SSH_CONFIG" && printf '  \e[32mDone.\e[0m\n' || \
+    sh -c "$editor \"\$1\"" sh "$file" && printf '  \e[32mDone.\e[0m\n' || \
         printf '  \e[31mCould not open editor '\''%s'\''.\e[0m\n' "$editor"
 }
 

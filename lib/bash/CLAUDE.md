@@ -133,7 +133,7 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 ### config-display.sh
 
 - `show_ssh_config_file`:12 — paginated SSH config viewer with inline editor launch
-- `edit_ssh_config_file`:116
+- `edit_ssh_config_file`:116 `[FILE]` — `$VISUAL`/`$EDITOR` (first word checked) or nano/vi; default `$SSH_CONFIG`; a missing file is an `_out error` (stays on screen)
 - `remove_host_from_ssh_config`:140 — removes a Host block after confirmation
 - `show_ssh_key_inventory`:189 — lists local keys, their fingerprints, and which hosts reference them
 - `_view_ssh_key`:375 / `_display_key_file`:415
@@ -156,6 +156,7 @@ All status/feedback output uses `_out`/`_out_item` — no raw `\e[` escape codes
 - `_menu_remove_host`:348 — delegates to `remove_host_from_ssh_config`
 - `_menu_view_config`:352 — calls `show_ssh_config_file`; returns 1 to skip `wait_user_acknowledge`
 - `_menu_edit_config`:357 — calls `edit_ssh_config_file`; returns 1 to skip `wait_user_acknowledge`
+- `_menu_edit_known_hosts` (23, S, #37) — `edit_ssh_config_file "$SSH_DIR/known_hosts"`
 - `_menu_list_authorized_keys`:362 — asks This user / All users; SSHes to target, fetches `authorized_keys`, displays numbered list
 - `_list_all_authorized_keys TARGET` (#14) — every user's `~/.ssh/authorized_keys` grouped by user, as root or via `sudo -n` (`_REMOTE_AK_*`; NOROOT when neither)
 - `_menu_add_config_block`:389 — delegates to `register_remote_host_config` (reads remote auth_keys, creates host config entry)

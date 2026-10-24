@@ -33,6 +33,7 @@ function Invoke-MenuChoice {
         "18" { return _MenuImportKey }
         "19" { return _MenuListKnownHosts }
         "20" { return _MenuForgetHostKey }
+        "23" { return _MenuEditKnownHosts }
         "21" { return _MenuListRemoteKnownHosts }
         "22" { return _MenuForgetRemoteHostKey }
     }
@@ -413,8 +414,15 @@ function _MenuViewConfig {           # choice 13 — paginated SSH config viewer
 }
 
 function _MenuEditConfig {           # choice 14 — open config in editor
-    Edit-SSHConfigFile
-    return $true
+    $p = "$env:USERPROFILE\.ssh\config"
+    Edit-SSHConfigFile -Path $p
+    return (Test-Path $p)   # missing: $false keeps the error on screen until a key
+}
+
+function _MenuEditKnownHosts {       # choice 23 (#37) — open local known_hosts in editor
+    $p = "$env:USERPROFILE\.ssh\known_hosts"
+    Edit-SSHConfigFile -Path $p
+    return (Test-Path $p)
 }
 
 function _MenuListAuthorizedKeys {   # choice 16 — SSH to target, fetch authorized_keys, display numbered list

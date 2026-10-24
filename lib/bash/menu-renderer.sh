@@ -64,7 +64,7 @@ _hint_bar() {
 show_main_menu() {
     local -a m_type=(
         header  item    item    item    item    item    item    item    item    item
-        header  item    item    item    item    item    item    item    item
+        header  item    item    item    item    item    item    item    item    item
         header  item    item    item    item
     )
     local -a m_label=(
@@ -87,6 +87,7 @@ show_main_menu() {
         "📥  Import Key from Another Machine"
         "📜  List Known Hosts"
         "🧹  Forget Host Key"
+        "📒  Edit Known Hosts"
         "Config File"
         "🏚   Remove Host from SSH Config"
         "👁   View Config"
@@ -95,12 +96,12 @@ show_main_menu() {
     )
     local -a m_choice=(
         ""   "1"  "15" "2"  "3"  "4"  "16" "17" "21" "22"
-        ""   "5"  "6"  "7"  "8"  "9"  "18" "19" "20"
+        ""   "5"  "6"  "7"  "8"  "9"  "18" "19" "20" "23"
         ""   "12" "13" "14" "q"
     )
     local -a m_hotkey=(
         ""   "G"  "I"  "T"  "D"  "P"  "Z"  "N"  "O"  "B"
-        ""   "W"  "L"  "A"  "X"  "R"  "M"  "K"  "F"
+        ""   "W"  "L"  "A"  "X"  "R"  "M"  "K"  "F"  "S"
         ""   "H"  "V"  "E"  "Q"
     )
 
@@ -376,9 +377,6 @@ show_main_menu() {
                 ;;
             q|Q)
                 running=0 ;;
-            's'|'S')
-                _invoke_choice "13" "SSH Config"
-                ;;
             *)
                 if [[ ${#k} -eq 1 ]]; then
                     # Convert pressed key to uppercase once for case-insensitive match.

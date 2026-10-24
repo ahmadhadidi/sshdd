@@ -131,7 +131,7 @@ All status/feedback output uses `Write-Out`/`Write-OutItem` — no raw `[Console
 - `_MenuConfDefaults`:283 — inline TUI for editing DEFAULT_* globals; shows the 2 `setup/alias` one-liners ("To persist", #31) and 4 run-once launch commands, values single-quoted, wrapped by `_ConfCmd` (mirrors bash `_conf_wrap`); returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuRemoveHost`:381 — delegates to `Remove-HostFromSSHConfig`
 - `_MenuViewConfig`:385 — calls `Show-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`
-- `_MenuEditConfig`:390 — calls `Edit-SSHConfigFile`; returns `$true` to skip `Wait-UserAcknowledge`
+- `_MenuEditConfig`:390 / `_MenuEditKnownHosts` (23, S, #37) — `Edit-SSHConfigFile -Path` config / known_hosts; return `$true` (skip `Wait-UserAcknowledge`) unless the file is missing
 - `_MenuListKeys`:171 — calls `Show-SSHKeyInventory`; returns `$true` to skip `Wait-UserAcknowledge`
 - `_MenuListAuthorizedKeys`:395 — asks This user / All users; SSHes to target, fetches `authorized_keys`, displays numbered list
 - `Write-AllAuthorizedKeys` (#14) — every user's `~/.ssh/authorized_keys` grouped by user, as root or via `sudo -n` (`$script:RemoteAk*`, script inside the command, not stdin: PS 5.1 pipes CRLF)

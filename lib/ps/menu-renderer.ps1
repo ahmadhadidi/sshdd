@@ -24,6 +24,7 @@ function Show-MainMenu {
         [pscustomobject]@{ Type = "item";   Label = "📥  Import SSH Key from Another Machine";            Choice = "18"; Hotkey = "M" }
         [pscustomobject]@{ Type = "item";   Label = "📜  List Known Hosts";                               Choice = "19"; Hotkey = "K" }
         [pscustomobject]@{ Type = "item";   Label = "🧹  Forget Host Key";                                Choice = "20"; Hotkey = "F" }
+        [pscustomobject]@{ Type = "item";   Label = "📒  Edit Known Hosts";                               Choice = "23"; Hotkey = "S" }
         [pscustomobject]@{ Type = "header"; Label = "Config File" }
         [pscustomobject]@{ Type = "item";   Label = "🏚️  Remove Host from SSH Config";                    Choice = "12"; Hotkey = "H" }
         [pscustomobject]@{ Type = "item";   Label = "👁️  View SSH Config";                                Choice = "13"; Hotkey = "V" }

@@ -154,9 +154,10 @@ function Show-SSHConfigFile {
 
 
 function Edit-SSHConfigFile {
-    $configPath = "$env:USERPROFILE\.ssh\config"
+    param([string]$Path = "$env:USERPROFILE\.ssh\config")   # Edit Known Hosts passes known_hosts (#37)
+    $configPath = $Path
     if (-not (Test-Path $configPath)) {
-        Write-Out 'error' "SSH config not found at $configPath"
+        Write-Out 'error' "$configPath not found"
         return
     }
 

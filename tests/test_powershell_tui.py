@@ -12,7 +12,7 @@ from .screen import Tmux
 
 pytestmark = pytest.mark.skipif(not (shutil.which("pwsh") and shutil.which("tmux")), reason="needs pwsh and tmux")
 MAIN = "Up/Dn Navigate"
-SCREENS = {   # hotkey -> words from the screen's title
+SCREENS = {   # hotkey -> words from the screen's title (not E/S: they open a real editor; see test_edit_known_hosts)
     "G": "Generate & Install", "I": "Install SSH Key", "T": "Test SSH Connection", "D": "Delete SSH Key From",
     "P": "Promote Key", "Z": "List Authorized Keys", "N": "Add Config Block", "W": "Generate SSH Key",
     "L": "List SSH Keys", "A": "Append SSH Key", "X": "Delete an SSH Key Locally", "R": "Remove an SSH Key",
