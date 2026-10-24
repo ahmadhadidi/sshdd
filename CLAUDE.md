@@ -33,7 +33,7 @@ bash sshdd.sh --user myuser --subnet 192.168.0 --comment-suffix "-[prod]" --pass
 
 No build step. Both scripts run directly with no dependencies beyond Bash/PowerShell and OpenSSH (`ssh`, `ssh-keygen`). `sshpass` is optional for password-based remote auth.
 
-Checks: `make check` (syntax-checks `lib/bash/*.sh`, `lib/ps/*.ps1`); tests: `bash scripts/run-tests.sh -m "not lxc"` (pytest + pexpect, see `TEST.md`; `-m lxc` needs the test LXC). The pre-commit hook refreshes line numbers in this file (`make update-docs`), syntax-checks staged lib files, and runs the non-LXC tests when lib or test files are staged.
+Checks: `make check` (syntax-checks `lib/bash/*.sh`, `lib/ps/*.ps1`); tests: `make test-all` runs every test in the fastest order (local in parallel + LXC on CT 213 alongside, then timing tests; ~3 min), or `bash scripts/run-tests.sh -m "not lxc"` (pytest + pexpect, see `TEST.md`; `-m lxc` needs the test LXC). The pre-commit hook refreshes line numbers in this file (`make update-docs`), syntax-checks staged lib files, and runs the non-LXC tests when lib or test files are staged.
 
 ## Bash vs PowerShell parity
 

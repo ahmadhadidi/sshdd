@@ -61,3 +61,10 @@ Status: done (in Review, waiting for Ahmad)
 - README "Alias" is now one cloud line per OS running `setup/alias.sh` / `setup/alias.ps1`; flags optional, missing
   values asked (Enter = default), password hidden. Answers in the #29 note. Replaces #24's paste-in blocks.
 - #28 Ctrl+\ ignored; #20 address prompt empty (Ahmad's change). All pushed except #29.
+
+## 2026-10-24 — TODO #35 every test, fastest; #36 host-block edit
+
+Status: done (in Review, waiting for Ahmad)
+- `make test-all`: all 438 tests pass (402 local, 34 LXC on CT 213, 2 timing) in ~3 min; hook uses --dist worksteal.
+- #36: bash _replace_host_block matched block text anywhere ("host a" inside "host a0"); now whole lines only.
+- #32 still open (cause unknown; the test now reports the process list).

@@ -22,10 +22,17 @@ pytest tests/ -v
 > honours, so the temp-file leak check doesn't see other workers' files.
 
 ``` bash
-pytest tests/ -m "not lxc and not serial" -n auto   # then, on a quiet machine:
+pytest tests/ -m "not lxc and not serial" -n auto --dist worksteal   # then, on a quiet machine:
 pytest tests/ -m "serial and not lxc"
 ```
 Tests marked `serial` measure timing (arrow-key latency) and only mean something without other load (#34).
+`--dist worksteal` beat the default scheduling: 150-153 s vs 172 s (3 runs each, 12 cores). More workers than
+cores (16) was no faster and failed a timing-sensitive test; 8 workers took 208 s. The LXC tests (`-m lxc`, ~135 s)
+run one at a time: they share CT 213's `authorized_keys`, and OpenSSH penalises bursts of connections.
+
+# Everything, fastest
+> `make test-all` (scripts/test-all.sh): local tests in parallel while the LXC tests run on CT 213, then the
+> timing tests. ~2 min 45 s, against ~5 min 20 s one stage after another (2026-10-24, 12 cores).
 
 # Fail Fast
 > If you're developing and want the tests to stop the moment one of them fails (so you can fix it immediately):
