@@ -68,3 +68,10 @@ Status: done (in Review, waiting for Ahmad)
 - `make test-all`: all 438 tests pass (402 local, 34 LXC on CT 213, 2 timing) in ~3 min; hook uses --dist worksteal.
 - #36: bash _replace_host_block matched block text anywhere ("host a" inside "host a0"); now whole lines only.
 - #32 still open (cause unknown; the test now reports the process list).
+
+## 2026-10-26 — TODO #37 Edit Known Hosts, #41 mouse (bash)
+
+Status: done (in Review, waiting for Ahmad)
+- #37 S / 📒 Edit Known Hosts (pushed 7778d44).
+- #41: click/wheel in every bash screen, like herdr; capture only while an sshdd screen waits for a key; --no-mouse
+  and F5 Mouse on/off; setup/alias.sh --no-mouse. PowerShell follow-up: #42. herdr ideas filed: #38-#40.

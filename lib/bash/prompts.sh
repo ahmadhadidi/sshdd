@@ -15,6 +15,7 @@ _PROMPTS_SH_LOADED=1
 
 # Prompt with color. Result printed to stdout.
 read_colored_input() {
+    local _MOUSE_HERE=0   # text: no mouse capture (#41)
     local prompt="${1-Input}" color="${2:-cyan}"   # an explicit "" means no label (conf editor)
     local code
     case "$color" in
@@ -155,6 +156,7 @@ read_colored_input() {
 # Show a prompt with a default value pre-filled and editable (char-by-char).
 # Returns the edited value (or default on Enter). ESC sets _SELECT_CANCELLED=1.
 read_host_with_default() {
+    local _MOUSE_HERE=0   # text: no mouse capture (#41)
     local prompt="${1:-Value:}" default="${2:-}"
     printf '  \e[36m%s\e[0m  ' "$prompt" >&2
     printf '%s' "$default" >&2
@@ -272,6 +274,7 @@ read_host_with_default() {
 # A plain `read -s` took Esc as a character, so the passphrase silently contained \x1b (plan K1).
 # Result in _SECRET (never via $(...), so it doesn't sit in a subshell's argv/env).
 read_secret() {
+    local _MOUSE_HERE=0   # text: no mouse capture (#41)
     local _st _k
     _SECRET=''
     _st=$(stty -g 2>/dev/null) || true
@@ -510,6 +513,7 @@ read_ssh_key_comment() {
 
 # Y/N confirmation. Executes action_fn (no args) if confirmed.
 confirm_user_choice() {
+    local _MOUSE_HERE=0   # text: no mouse capture (#41)
     local message="$1" default="${2:-n}"
     local action_fn="$3"
     local suffix

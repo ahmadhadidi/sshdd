@@ -11,7 +11,7 @@
 # the old file is kept as <rc>.sshdd-bak.
 set -e
 
-user='' subnet='' suffix='' password='' got_user=0 got_subnet=0 got_suffix=0 got_password=0
+user='' subnet='' suffix='' password='' got_user=0 got_subnet=0 got_suffix=0 got_password=0 no_mouse=0
 
 usage() {
   cat <<'EOF'
@@ -20,6 +20,7 @@ Usage: bash <(curl -fsSL https://raw.githubusercontent.com/ahmadhadidi/sshdd/ref
   --subnet PREFIX        subnet prefix, 10 → PREFIX.10 (default: from your IP, else 192.168.0)
   --comment-suffix STR   appended to key comments      (default: -[short hostname])
   --password PASS        optional; stored in plain text in the rc file (better: the hidden prompt)
+  --no-mouse             the alias starts sshdd without mouse capture
 EOF
 }
 
@@ -33,6 +34,7 @@ while [ $# -gt 0 ]; do
     --subnet)         subnet=$2;   got_subnet=1;   shift 2 ;;
     --comment-suffix) suffix=$2;   got_suffix=1;   shift 2 ;;
     --password)       password=$2; got_password=1; shift 2 ;;
+    --no-mouse)       no_mouse=1; shift ;;     # passed on to sshdd (#41)
     -h|--help)        usage; exit 0 ;;
     *)                echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
@@ -97,6 +99,7 @@ fi
 
 cmd="$run --user $(q "$user") --subnet $(q "$subnet") --comment-suffix $(q "$suffix")"
 [ -n "$password" ] && cmd="$cmd --password $(q "$password")"
+(( no_mouse )) && cmd="$cmd --no-mouse"
 
 touch "$rc"
 cp "$rc" "$rc.sshdd-bak"

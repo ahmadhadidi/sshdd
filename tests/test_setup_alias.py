@@ -188,3 +188,10 @@ def test_readme_points_at_the_setup_scripts():
     base = "https://raw.githubusercontent.com/ahmadhadidi/sshdd/refs/heads/main/"
     for f in ("setup/alias.sh", "setup/alias.ps1"):
         assert base + f in text and os.path.exists(f"{ROOT}/{f}")
+
+
+def test_bash_no_mouse_is_passed_on(tmp_path):
+    """#41: --no-mouse goes into the alias."""
+    home = _home(tmp_path)
+    _bash(home, ["--user", "u", "--subnet", "10.0.0", "--comment-suffix", "-[x]", "--password", "", "--no-mouse"])
+    assert _run_alias(home, home / ".bashrc") == "<--user><u><--subnet><10.0.0><--comment-suffix><-[x]><--no-mouse>"

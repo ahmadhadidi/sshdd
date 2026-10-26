@@ -76,9 +76,10 @@ _conf_cmd() {    # _conf_cmd LABEL COMMAND CONTINUATION-CHAR COLOR
 
 # Inline TUI editor for Global Defaults.
 _run_conf_editor() {
-    local -a field_names=( DEFAULT_USER DEFAULT_SUBNET_PREFIX DEFAULT_COMMENT_SUFFIX DEFAULT_PASSWORD )
-    local -a field_labels=( "Default Username      " "Default Subnet Prefix " "Default Comment Suffix" "Default Password      " )
+    local -a field_names=( DEFAULT_USER DEFAULT_SUBNET_PREFIX DEFAULT_COMMENT_SUFFIX DEFAULT_PASSWORD SSHDD_MOUSE )
+    local -a field_labels=( "Default Username      " "Default Subnet Prefix " "Default Comment Suffix" "Default Password      " "Mouse                 " )
     local conf_sel=0 conf_run=1
+    local _MOUSE_HERE=1   # wheel moves, a click on a field edits it (#41)
 
     # Hold raw mode for the full navigation loop — same fix as show_main_menu.
     local _conf_stty
@@ -100,6 +101,8 @@ _run_conf_editor() {
             local disp
             if [[ $varname == "DEFAULT_PASSWORD" && -n $val ]]; then
                 disp=$(printf '%*s' "${#val}" '' | tr ' ' '*')
+            elif [[ $varname == SSHDD_MOUSE ]]; then
+                (( val )) && disp="on   (Enter: off)" || disp="off  (Enter: on)"
             else
                 disp="$val"
             fi
@@ -119,6 +122,7 @@ _run_conf_editor() {
         [[ -n $DEFAULT_USER           ]] && _bf+=" --user $(_sq "$DEFAULT_USER")"            && _pf+=" -DefaultUserName '${DEFAULT_USER//$_q/$_q$_q}'"        && _sf+=" -User '${DEFAULT_USER//$_q/$_q$_q}'"
         [[ -n $DEFAULT_SUBNET_PREFIX  ]] && _bf+=" --subnet $(_sq "$DEFAULT_SUBNET_PREFIX")" && _pf+=" -DefaultSubnetPrefix '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'" && _sf+=" -Subnet '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'"
         [[ -n $DEFAULT_COMMENT_SUFFIX ]] && _bf+=" --comment-suffix $(_sq "$DEFAULT_COMMENT_SUFFIX")" && _pf+=" -DefaultCommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'" && _sf+=" -CommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'"
+        (( ${SSHDD_MOUSE:-1} ))           || _bf+=" --no-mouse"   # PowerShell has no mouse yet (#41)
         [[ -n $DEFAULT_PASSWORD       ]] && _bf+=" --password $(_sq "$DEFAULT_PASSWORD")"    && _pf+=" -DefaultPassword '${DEFAULT_PASSWORD//$_q/$_q$_q}'"     && _sf+=" -Password '${DEFAULT_PASSWORD//$_q/$_q$_q}'"
         local _cur_row=$(( _conf_top + ${#field_names[@]} + 1 ))
         _conf_line ''
@@ -139,10 +143,19 @@ _run_conf_editor() {
         printf '%s' "$cf"
 
         _read_key
+        if [[ $KEY == "$KEY_CLICK" ]]; then        # a click on a field edits it, like Enter (#41)
+            local _mi=$(( MOUSE_ROW - _conf_top ))
+            (( _mi >= 0 && _mi < ${#field_names[@]} )) || continue
+            conf_sel=$_mi KEY=$KEY_ENTER
+        fi
         case "$KEY" in
             "$KEY_UP")   (( conf_sel = (conf_sel - 1 + ${#field_names[@]}) % ${#field_names[@]} )) ;;
             "$KEY_DOWN") (( conf_sel = (conf_sel + 1) % ${#field_names[@]} )) ;;
             "$KEY_ENTER"|"$KEY_ENTER2")
+                if [[ ${field_names[$conf_sel]} == SSHDD_MOUSE ]]; then   # on/off, not text
+                    (( SSHDD_MOUSE = ! ${SSHDD_MOUSE:-1} ))
+                    continue
+                fi
                 local row=$(( _conf_top + conf_sel ))
                 printf '\e[%d;1H\e[K  \e[1;33m    %s  \e[0;33m' "$row" "${field_labels[$conf_sel]}"
                 local new_val

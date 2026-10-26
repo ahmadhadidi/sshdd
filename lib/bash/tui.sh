@@ -92,7 +92,7 @@ _esc_drain() {
     _c=$(trap '' TSTP INT QUIT; dd bs=1 count=1 2>/dev/null)
     if [[ $_c == '[' || $_c == 'O' ]]; then
         _ESC_TAIL=$_c
-        while (( _n++ < 8 )) && IFS= read -r -n1 _c 2>/dev/null; do
+        while (( _n++ < 24 )) && IFS= read -r -n1 _c 2>/dev/null; do   # a mouse report has up to ~14
             _ESC_TAIL+=$_c
             [[ $_c == [A-Za-z~] ]] && break      # final byte of the sequence
         done
@@ -158,24 +158,60 @@ _utf8_tail() {
 }
 _wait_key() {
     local _sz
-    until _poll_byte; do
-        [[ -t 0 ]] || { KEY=$'\n'; return 0; }   # not a terminal: nothing read = end of input, Enter (as read did, #26)
-        _sz=$(stty size 2>/dev/null)
-        if [[ -n $_sz && -n ${TERM_W:-} && $_sz != "$TERM_H $TERM_W" ]]; then
-            # Update the globals here: a loop that doesn't re-read the size would otherwise
-            # get RESIZE every 100 ms and redraw forever.
-            TERM_H=${_sz%% *} TERM_W=${_sz##* }
-            KEY=$KEY_RESIZE
-            return 0
+    (( ${_MOUSE_HERE:-0} )) && _mouse_on
+    while :; do
+        until _poll_byte; do
+            [[ -t 0 ]] || { KEY=$'\n'; return 0; }   # not a terminal: nothing read = end of input, Enter (as read did, #26)
+            _sz=$(stty size 2>/dev/null)
+            if [[ -n $_sz && -n ${TERM_W:-} && $_sz != "$TERM_H $TERM_W" ]]; then
+                # Update the globals here: a loop that doesn't re-read the size would otherwise
+                # get RESIZE every 100 ms and redraw forever.
+                TERM_H=${_sz%% *} TERM_W=${_sz##* }
+                KEY=$KEY_RESIZE
+                (( ${_MOUSE_HERE:-0} )) && _mouse_off
+                return 0
+            fi
+        done
+        KEY=$_BYTE
+        [[ $KEY == $'\r' ]] && KEY=$'\n'
+        _utf8_tail
+        if [[ $KEY == $'\x1b' ]]; then
+            _esc_drain "min 0 time 1"
+            KEY+=$_ESC_TAIL
+            _mouse_key
+            [[ -z $KEY ]] && continue            # a release, right/middle click: not a key
         fi
+        break
     done
-    KEY=$_BYTE
-    [[ $KEY == $'\r' ]] && KEY=$'\n'
-    _utf8_tail
-    if [[ $KEY == $'\x1b' ]]; then
-        _esc_drain "min 0 time 1"
-        KEY+=$_ESC_TAIL
-    fi
+    (( ${_MOUSE_HERE:-0} )) && _mouse_off
+    return 0
+}
+
+# ─── Mouse (TODO #41, like herdr) ─────────────────────────────────────────────
+# The terminal reports the mouse only while _mouse_on is in effect: _wait_key switches it on for screens
+# that set "local _MOUSE_HERE=1" and off as soon as a key arrives, so ssh, editors and text prompts never
+# get click codes; the main menu holds it on itself (menu-renderer.sh). SSHDD_MOUSE=0 (--no-mouse): never.
+# While on, drag-selecting text needs Shift (Option on a Mac).
+_mouse_on()  { (( ${SSHDD_MOUSE:-0} )) && printf '\e[?1000h\e[?1006h' >/dev/tty 2>/dev/null; return 0; }
+_mouse_off() { printf '\e[?1006l\e[?1000l' >/dev/tty 2>/dev/null; return 0; }   # always: --no-mouse may have come later
+
+# A mouse report in KEY (SGR: ESC [ < button ; column ; row M press / m release) becomes a key:
+# wheel -> KEY_UP / KEY_DOWN, left press -> KEY_CLICK with MOUSE_COL / MOUSE_ROW, anything else -> ''.
+_mouse_key() {
+    [[ $KEY == $'\x1b[<'*[Mm] ]] || return 0
+    local _m=${KEY#$'\x1b[<'} _rel=0 _btn
+    [[ $_m == *m ]] && _rel=1
+    _m=${_m%[Mm]}
+    _btn=${_m%%;*} _m=${_m#*;}
+    MOUSE_COL=${_m%%;*} MOUSE_ROW=${_m#*;}
+    KEY=''
+    [[ $_btn == '' || $_btn == *[!0-9]* || $MOUSE_COL == *[!0-9]* || $MOUSE_ROW == *[!0-9]* ]] && return 0
+    (( _rel || ! ${SSHDD_MOUSE:-0} )) && return 0   # mouse off: a stray report does nothing either
+    case $(( _btn & ~28 )) in                  # without the Shift/Alt/Ctrl bits (4, 8, 16)
+        0)  KEY=$KEY_CLICK ;;
+        64) KEY=$KEY_UP ;;
+        65) KEY=$KEY_DOWN ;;
+    esac
 }
 
 # Read one keypress (blocking, manages its own stty). Sets global KEY (KEY_RESIZE on resize).
@@ -202,6 +238,8 @@ _read_key_nb() {
     if [[ $KEY == $'\x1b' ]]; then
         _esc_drain "min 0 time 1"
         KEY+=$_ESC_TAIL
+        _mouse_key
+        [[ -z $KEY ]] && return 1                # a release, right/middle click: no key
     fi
     return 0
 }
@@ -234,6 +272,7 @@ readonly KEY_ENTER=$'\r'
 readonly KEY_ENTER2=$'\n'
 readonly KEY_ESC=$'\x1b'
 readonly KEY_RESIZE='<resize>'   # pseudo-key from _wait_key: terminal size changed, redraw
+readonly KEY_CLICK='<click>'     # pseudo-key: left mouse press at MOUSE_COL/MOUSE_ROW (#41)
 readonly KEY_BACKSPACE=$'\x7f'
 readonly KEY_BACKSPACE2=$'\x08'
 
@@ -241,6 +280,7 @@ readonly KEY_BACKSPACE2=$'\x08'
 
 # Show a "Press any key to return to menu" bar at the bottom of the screen.
 wait_user_acknowledge() {
+    local _MOUSE_HERE=1   # a click counts as a key (#41)
     _term_size
     local msg="  Press any key to return to menu  "
     local pad
@@ -251,6 +291,7 @@ wait_user_acknowledge() {
 
 # Page through an array of lines. Lines may contain ANSI codes.
 show_paged() {
+    local _MOUSE_HERE=1   # #41: wheel down = more; wheel up and clicks do nothing
     local -a lines=("$@")
     local total=${#lines[@]}
     _term_size
@@ -268,6 +309,7 @@ show_paged() {
         if (( i < total )); then
             printf '\e[90m-- %d/%d lines shown | Enter=more, Q/Esc=quit --\e[0m' "$i" "$total"
             _read_key
+            while [[ $KEY == "$KEY_UP" || $KEY == "$KEY_CLICK" || $KEY == "$KEY_RESIZE" ]]; do _read_key; done
             printf '\n'
             [[ $KEY == 'q' || $KEY == 'Q' || $KEY == "$KEY_ESC" ]] && break
         fi
@@ -322,6 +364,7 @@ select_multi_from_list() {
     _SELECT_CANCELLED=0
 
     if (( item_count == 0 )); then return 1; fi
+    local _MOUSE_HERE=1   # #41: wheel moves, a click on an entry toggles it
 
     local _tty=/dev/tty
     [[ -c /dev/tty ]] || _tty=/proc/self/fd/2
@@ -386,6 +429,11 @@ select_multi_from_list() {
 
         printf '%s' "$f" >"$_tty"
         _read_key_raw
+        if [[ $KEY == "$KEY_CLICK" ]]; then        # a click on an entry toggles it, like Space (#41)
+            local _mi=$(( MOUSE_ROW - start_row ))
+            (( _mi >= 0 && _mi < max_vis && view_off + _mi < item_count )) || continue
+            sel=$(( view_off + _mi )) KEY=' '
+        fi
 
         case "$KEY" in
             "$KEY_UP")   (( sel = (sel <= 0          ? item_count-1 : sel-1) )) ;;
@@ -439,6 +487,7 @@ select_from_list() {
         _SELECT_CANCELLED=0
         return 1
     fi
+    local _MOUSE_HERE=1   # #41: wheel moves, a click on an entry chooses it
 
     # Always write TUI to the controlling terminal, never to a captured pipe.
     local _tty=/dev/tty
@@ -535,6 +584,11 @@ select_from_list() {
 
         _read_key_raw
         local k="$KEY"
+        if [[ $k == "$KEY_CLICK" ]]; then          # a click on an entry chooses it, like Enter (#41)
+            local _mi=$(( MOUSE_ROW - start_row ))
+            (( _mi >= 0 && _mi < max_vis && view_off + _mi < fcount )) || continue
+            sel=$(( view_off + _mi )) k=$KEY_ENTER
+        fi
 
         case "$k" in
             "$KEY_UP")

@@ -24,6 +24,7 @@ DEFAULT_SUBNET_PREFIX="192.168.0"
 DEFAULT_COMMENT_SUFFIX="-[my-machine]"
 DEFAULT_PASSWORD=""
 VERBOSE=0
+SSHDD_MOUSE=1   # click and wheel in sshdd's screens (#41); --no-mouse switches it off
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
         --comment-suffix)  DEFAULT_COMMENT_SUFFIX="$2";  shift 2 ;;
         --password)        DEFAULT_PASSWORD="$2";         shift 2 ;;
         --verbose)         VERBOSE=1;                     shift   ;;
+        --no-mouse)        SSHDD_MOUSE=0;                 shift   ;;   # #41: no click/wheel capture
         *) shift ;;
     esac
 done

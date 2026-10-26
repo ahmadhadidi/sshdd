@@ -12,6 +12,7 @@ _MENU_RENDERER_SH_LOADED=1
 # Sets need_full=1 on return (local in show_main_menu — bash dynamic scoping).
 _invoke_choice() {
     local choice="$1" label="$2"
+    _mouse_off   # operations run ssh, editors and prompts: no click codes there (#41)
     _dbg "_invoke_choice: choice='$choice' label='$label'"
     _draw_op_header "$label"
 
@@ -157,6 +158,7 @@ show_main_menu() {
         local _job
         for _job in $(jobs -p); do kill "$_job" 2>/dev/null; kill -CONT "$_job" 2>/dev/null; done
         _spin_stop 2>/dev/null || true
+        _mouse_off   # never leave the terminal reporting clicks (#41)
         # Clear the alternate screen before leaving so no content bleeds through,
         # then restore cursor visibility and switch back to the normal screen.
         local _back=''
@@ -184,6 +186,7 @@ show_main_menu() {
 
         # ── Full render ──────────────────────────────────────────────────────
         if (( need_full )); then
+            _mouse_on   # #41: the menu takes clicks; on again after every screen that switched it off
             _term_size
             term_w=$TERM_W; term_h=$TERM_H
 
@@ -327,6 +330,14 @@ show_main_menu() {
 
         local k="$KEY"
         _dbg "key pressed: $(printf '%s' "$k" | od -An -tx1 2>/dev/null | tr -d ' \n')"
+        if [[ $k == "$KEY_CLICK" ]]; then          # a click on an item opens it, like a tab in herdr (#41)
+            local _n _hit=-1
+            for (( _n=0; _n<nav_count; _n++ )); do
+                [[ ${item_rows[$_n]:-} == "$MOUSE_ROW" ]] && { _hit=$_n; break; }
+            done
+            (( _hit < 0 )) && continue
+            sel=$_hit k=$KEY_ENTER
+        fi
 
         # ── Navigation keys ──────────────────────────────────────────────────
         case "$k" in

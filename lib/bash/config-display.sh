@@ -10,6 +10,7 @@ _CONFIG_DISPLAY_SH_LOADED=1
 
 # Interactive pager for ~/.ssh/config with syntax highlighting.
 show_ssh_config_file() {
+    local _MOUSE_HERE=1   # wheel scrolls (#41)
     if [[ ! -f "$SSH_CONFIG" ]]; then
         printf '  \e[31mSSH config not found at %s\e[0m\n' "$SSH_CONFIG"
         return
@@ -206,6 +207,7 @@ remove_host_from_ssh_config() {
 }
 
 show_ssh_key_inventory() {
+    local _MOUSE_HERE=1   # wheel moves, a click on a key opens it (#41)
     local _banner_rows=5  # show_op_banner always outputs 5 rows
 
     if [[ ! -d "$SSH_DIR" ]]; then
@@ -362,6 +364,11 @@ show_ssh_key_inventory() {
         fi
 
         _read_key
+        if [[ $KEY == "$KEY_CLICK" ]]; then        # a click on a key row opens it, like Enter (#41)
+            local _mi=$(( MOUSE_ROW - 11 - _banner_rows ))
+            (( _mi >= 0 && _mi < content_rows && off + _mi < key_count )) || continue
+            sel=$(( off + _mi )) KEY=$KEY_ENTER
+        fi
         case "$KEY" in
             "$KEY_RESIZE")
                 need_redraw=1
@@ -434,6 +441,7 @@ _view_ssh_key() {
 
 # Full-screen pager for a raw key file.
 _display_key_file() {
+    local _MOUSE_HERE=1   # wheel scrolls (#41)
     local file="$1" title="$2"
     if [[ ! -f $file ]]; then
         printf '  \e[31mFile not found: %s\e[0m\n' "$file"
