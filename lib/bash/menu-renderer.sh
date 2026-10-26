@@ -62,6 +62,16 @@ _hint_bar() {
     printf -v _HINT_BAR '\e[7m%s%*s\e[0m' "$out" "$(( w - ${#plain} ))" ""
 }
 
+# Open https://axc.sh in the browser (#44): on this machine only; over SSH it would open on the remote.
+_open_axc() {
+    [[ -n ${SSH_CONNECTION:-} ]] && return 0
+    local o=''
+    if [[ $(uname) == Darwin ]]; then o=open
+    elif command -v xdg-open >/dev/null 2>&1; then o=xdg-open
+    else return 0; fi
+    ( "$o" https://axc.sh >/dev/null 2>&1 & )      # detached: not a job sshdd's cleanup would kill
+}
+
 show_main_menu() {
     local -a m_type=(
         header  item    item    item    item    item    item    item    item    item
@@ -203,6 +213,8 @@ show_main_menu() {
             local lspc rspc
             printf -v lspc '%*s' "$lpad" ''
             printf -v rspc '%*s' "$rpad" ''
+            # axc.sh as a terminal link (OSC 8, #44); widths above use the plain title
+            local title_out="${menu_title%axc.sh}"$'\e]8;;https://axc.sh\e\\axc.sh\e]8;;\e\\'
 
             local content_start=8
             # Reserve 2 rows: hint bar (bottom) + second bar (F-keys or config warning)
@@ -229,7 +241,7 @@ show_main_menu() {
             f="$(printf '\e[2J\e[H')"
             f+="$(printf '\e[2;1H  \e[96m%s%s%s\e[0m\e[K'                                          "$_TL" "$h_rule" "$_TR")"
             f+="$(printf '\e[3;1H  \e[96m%s\e[0m\e[48;5;23m%s\e[0m\e[96m%s\e[0m\e[K'              "$_VB" "$inner_pad" "$_VB")"
-            f+="$(printf '\e[4;1H  \e[96m%s\e[0m\e[48;5;23m\e[1;97m%s%s%s\e[0m\e[96m%s\e[0m\e[K'  "$_VB" "$lspc" "$menu_title" "$rspc" "$_VB")"
+            f+="$(printf '\e[4;1H  \e[96m%s\e[0m\e[48;5;23m\e[1;97m%s%s%s\e[0m\e[96m%s\e[0m\e[K'  "$_VB" "$lspc" "$title_out" "$rspc" "$_VB")"
             f+="$(printf '\e[5;1H  \e[96m%s\e[0m\e[48;5;23m%s\e[0m\e[96m%s\e[0m\e[K'              "$_VB" "$inner_pad" "$_VB")"
             f+="$(printf '\e[6;1H  \e[96m%s%s%s\e[0m\e[K'                                          "$_BL" "$h_rule" "$_BR")"
             f+="$(printf '\e[7;1H\e[K')"
@@ -330,6 +342,10 @@ show_main_menu() {
 
         local k="$KEY"
         _dbg "key pressed: $(printf '%s' "$k" | od -An -tx1 2>/dev/null | tr -d ' \n')"
+        if [[ $k == "$KEY_CLICK" ]] && (( MOUSE_ROW >= 3 && MOUSE_ROW <= 5 )); then
+            _open_axc                                # a click on the title opens https://axc.sh (#44)
+            continue
+        fi
         if [[ $k == "$KEY_CLICK" ]]; then          # a click on an item opens it, like a tab in herdr (#41)
             local _n _hit=-1
             for (( _n=0; _n<nav_count; _n++ )); do

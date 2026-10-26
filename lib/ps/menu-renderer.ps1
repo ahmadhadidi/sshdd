@@ -98,7 +98,9 @@ function Show-MainMenu {
                 $titleFill    = " " * [Math]::Max(0, $termWidth - $titleContent.Length)
                 $f  = "`e[2J`e[H"
                 $f += "`e[2;1H  `e[96m$menuRule`e[0m`e[K"
-                $f += "`e[3;1H`e[48;5;23m`e[1;97m$titleContent$titleFill`e[0m"
+                # axc.sh as a terminal link (OSC 8, #44), added after the width maths
+                $titleLinked = $titleContent.Replace("axc.sh", "`e]8;;https://axc.sh`e\axc.sh`e]8;;`e\")
+                $f += "`e[3;1H`e[48;5;23m`e[1;97m$titleLinked$titleFill`e[0m"
                 $f += "`e[4;1H  `e[96m$menuRule`e[0m`e[K"
 
                 $itemRows = @{}

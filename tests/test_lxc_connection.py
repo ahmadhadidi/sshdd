@@ -170,7 +170,7 @@ def _run_tui(args=""):
     )
     child.setwinsize(40, 100)
     child.logfile = None  # suppress noise; enable with sys.stdout for debugging
-    child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
+    child.expect(["SSHDD -- ", "Quit"], timeout=10)
     time.sleep(0.3)
     return child
 

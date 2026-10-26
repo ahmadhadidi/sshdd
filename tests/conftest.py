@@ -116,7 +116,7 @@ def run_tui():
         child.setwinsize(40, 100)
         child.logfile = sys.stdout
 
-        child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
+        child.expect(["SSHDD -- ", "Quit"], timeout=10)
 
         time.sleep(0.5)
         children.append(child)
@@ -154,7 +154,7 @@ def run_tui_no_keys(tmp_path):
         )
         child.setwinsize(40, 100)
         child.logfile = sys.stdout
-        child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
+        child.expect(["SSHDD -- ", "Quit"], timeout=10)
         time.sleep(0.5)
         children.append(child)
         return child
@@ -169,5 +169,5 @@ def check_navigation():
         child.expect(expected_header)
         time.sleep(0.2)
         child.send("\x1b")  # ESC
-        child.expect("SSHDD -- axc.sh")
+        child.expect("SSHDD -- ")
     return _check

@@ -110,7 +110,7 @@ def _run_tui() -> pexpect.spawn:
         env=env, encoding="utf-8", timeout=30,
     )
     child.setwinsize(40, 100)
-    child.expect(["SSHDD -- axc.sh", "Quit"], timeout=10)
+    child.expect(["SSHDD -- ", "Quit"], timeout=10)
     time.sleep(0.3)
     return child
 
