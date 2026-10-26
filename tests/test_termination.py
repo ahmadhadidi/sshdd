@@ -47,7 +47,10 @@ def _start(sh, marker):
 
 
 def _pid(marker):
-    out = subprocess.run(["pgrep", "-f", f"sshdd.sh --comment-suffix {marker}"],
+    # -o, the oldest match: sshdd itself. Its $(...) subshells share the command line, and after the PID
+    # counter wraps (it did: ~3.4M on 10-23, ~0.99M on 10-24, pid_max 4.19M) one can have a lower PID than
+    # sshdd; pgrep listed it first and it was gone by the signal: ProcessLookupError (#32, likely).
+    out = subprocess.run(["pgrep", "-o", "-f", f"sshdd.sh --comment-suffix {marker}"],
                          capture_output=True, text=True).stdout.split()
     return int(out[0]) if out else None
 
