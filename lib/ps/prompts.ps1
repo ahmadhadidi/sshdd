@@ -143,7 +143,7 @@ function Read-LineKeys {
     param([string]$Default = "")
     $buf = $Default
     while ($true) {
-        $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        $k = Read-TuiKey   # swallows stray mouse reports: a late release's ESC would cancel the prompt (#42)
         if ($k.VirtualKeyCode -eq 13) {        # Enter
             [Console]::WriteLine()
             return $buf

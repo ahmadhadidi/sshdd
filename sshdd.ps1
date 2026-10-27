@@ -2,7 +2,8 @@ param(
   [string]$DefaultUserName      = "default_non_root_username",
   [string]$DefaultSubnetPrefix  = "192.168.0",
   [string]$DefaultCommentSuffix = "-[my-machine]",
-  [string]$DefaultPassword      = ""
+  [string]$DefaultPassword      = "",
+  [switch]$NoMouse                       # #42: no click/wheel capture
 )
 # SSH Key Manager — PowerShell entry point
 #
@@ -42,6 +43,7 @@ foreach ($__lib in $__libs) {
     }
 }
 Remove-Variable __lib, __libs, __local, _SCRIPT_DIR, _BASE_URL -ErrorAction SilentlyContinue
+$script:SshddMouse = -not $NoMouse   # after the libs: tui.ps1 starts it at $false
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 Show-MainMenu

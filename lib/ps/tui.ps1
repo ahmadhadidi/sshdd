@@ -1,6 +1,129 @@
 # lib/ps/tui.ps1 — TUI helpers: Wait-UserAcknowledge, Show-Paged, Select-FromList, Format-MenuLabel
 # EXPORTS: Wait-UserAcknowledge  Show-Paged  Select-FromList
-#          Select-MultiFromList  Format-MenuLabel
+#          Select-MultiFromList  Format-MenuLabel  Read-TuiKey  Enable-TuiMouse  Disable-TuiMouse
+
+# ─── Mouse (TODO #42, like bash #41 / herdr) ──────────────────────────────────
+# Read-TuiKey returns the key like ReadKey, or for the mouse an object with Click = $true and Col / Row
+# (1-based screen cell); the wheel comes back as Up / Down (VirtualKeyCode 38 / 40); releases and
+# right/middle clicks are skipped. Capture is on only while a screen calls Read-TuiKey -Mouse (or the
+# main menu holds it), so ssh, editors and text prompts never get click codes.
+# macOS/Linux: the terminal sends SGR reports (ESC [ < b ; col ; row M) that ReadKey returns one
+# character at a time. Windows: mouse input arrives as separate console records ReadKey never returns,
+# so a small C# reader (ReadConsoleInput) is used while capturing; QuickEdit is off only then.
+$script:SshddMouse = $false   # sshdd.ps1 sets it (on unless -NoMouse)
+$script:IsWin      = ($PSVersionTable.PSEdition -eq 'Desktop') -or $IsWindows
+$script:WinConsole = $null     # $true once the C# reader compiled, $false if it can't
+
+function Test-WinConsole {
+    if ($null -ne $script:WinConsole) { return $script:WinConsole }
+    try {
+        Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class SshddConsole {
+    [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
+    struct INPUT_RECORD {
+        [FieldOffset(0)] public ushort EventType;
+        [FieldOffset(4)] public int KeyDown;          // KEY_EVENT_RECORD
+        [FieldOffset(10)] public ushort VirtualKeyCode;
+        [FieldOffset(14)] public char UnicodeChar;
+        [FieldOffset(16)] public uint KeyControlState;
+        [FieldOffset(4)] public short X;              // MOUSE_EVENT_RECORD
+        [FieldOffset(6)] public short Y;
+        [FieldOffset(8)] public uint ButtonState;
+        [FieldOffset(16)] public uint EventFlags;
+    }
+    [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int h);
+    [DllImport("kernel32.dll")] static extern bool GetConsoleMode(IntPtr h, out uint m);
+    [DllImport("kernel32.dll")] static extern bool SetConsoleMode(IntPtr h, uint m);
+    [DllImport("kernel32.dll")] static extern bool GetNumberOfConsoleInputEvents(IntPtr h, out uint n);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    static extern bool ReadConsoleInputW(IntPtr h, [Out] INPUT_RECORD[] b, uint len, out uint read);
+    static uint saved; static bool on;
+    static IntPtr In { get { return GetStdHandle(-10); } }
+    public static void MouseOn() {
+        uint m; if (on || !GetConsoleMode(In, out m)) return;
+        saved = m; on = true;
+        SetConsoleMode(In, (m | 0x0010 | 0x0080) & ~0x0040u);   // + MOUSE_INPUT + EXTENDED_FLAGS, - QUICK_EDIT
+    }
+    public static void MouseOff() { if (on) { SetConsoleMode(In, saved); on = false; } }
+    public static bool Available() { uint n; return GetNumberOfConsoleInputEvents(In, out n) && n > 0; }
+    // Kind: 1 key (Vk, Ch, Ctrl), 2 left press (X, Y), 3 wheel up, 4 wheel down, 0 nothing to report.
+    public static int[] Read() {
+        var b = new INPUT_RECORD[1]; uint r;
+        if (!ReadConsoleInputW(In, b, 1, out r) || r == 0) return new int[] { 0, 0, 0, 0, 0, 0 };
+        var e = b[0];
+        if (e.EventType == 1 && e.KeyDown != 0)
+            return new int[] { 1, e.VirtualKeyCode, e.UnicodeChar, (int)e.KeyControlState, 0, 0 };
+        if (e.EventType == 2) {
+            if (e.EventFlags == 4) return new int[] { ((int)e.ButtonState) > 0 ? 3 : 4, 0, 0, 0, e.X, e.Y };   // MOUSE_WHEELED
+            if (e.EventFlags == 0 && (e.ButtonState & 1) != 0) return new int[] { 2, 0, 0, 0, e.X, e.Y };   // left press
+        }
+        return new int[] { 0, 0, 0, 0, 0, 0 };
+    }
+}
+'@
+        $script:WinConsole = $true
+    } catch { $script:WinConsole = $false }
+    return $script:WinConsole
+}
+
+function Enable-TuiMouse {
+    if (-not $script:SshddMouse) { return }
+    if ($script:IsWin) { if (Test-WinConsole) { [SshddConsole]::MouseOn() } }
+    else { [Console]::Write("`e[?1000h`e[?1006h") }
+}
+
+function Disable-TuiMouse {   # always: -NoMouse may have come later (F10)
+    if ($script:IsWin) { if ($script:WinConsole) { [SshddConsole]::MouseOff() } }
+    else { [Console]::Write("`e[?1006l`e[?1000l") }
+}
+
+function Test-TuiInput {   # a key (or, on Windows while capturing, a mouse record) is waiting
+    if ($script:IsWin -and $script:SshddMouse -and $script:WinConsole) { return [SshddConsole]::Available() }
+    try { return $Host.UI.RawUI.KeyAvailable } catch { return $false }
+}
+
+function New-TuiMouseKey([int]$Vk, [bool]$Click, [int]$Col, [int]$Row) {
+    [pscustomobject]@{ VirtualKeyCode = $Vk; Character = [char]0; ControlKeyState = 0; Click = $Click; Col = $Col; Row = $Row }
+}
+
+function Read-TuiKey {
+    param([switch]$Mouse)   # -Mouse: capture while waiting (screens); the main menu holds capture itself
+    if ($Mouse) { Enable-TuiMouse }
+    try {
+        while ($true) {
+            if ($script:IsWin -and $script:SshddMouse -and $script:WinConsole) {
+                $r = [SshddConsole]::Read()
+                switch ($r[0]) {
+                    1 { return [pscustomobject]@{ VirtualKeyCode = $r[1]; Character = [char]$r[2]; ControlKeyState = $r[3]; Click = $false } }
+                    2 { return New-TuiMouseKey 0 $true ($r[4] + 1) ($r[5] - $Host.UI.RawUI.WindowPosition.Y + 1) }
+                    3 { return New-TuiMouseKey 38 $false 0 0 }
+                    4 { return New-TuiMouseKey 40 $false 0 0 }
+                }
+                continue
+            }
+            $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            if ($k.VirtualKeyCode -ne 27 -or -not (Test-TuiInput)) { return $k }   # not ESC + more: a key (bare Esc too)
+            $c = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
+            if ($c -ne '[') { return $k }                         # Esc pressed with another key close behind
+            $s = ''
+            while ((Test-TuiInput) -and $s.Length -lt 24) {        # rest of the sequence, up to its final byte
+                $ch = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character
+                $s += $ch
+                if ($ch -match '[A-Za-z~]') { break }
+            }
+            if ($s -notmatch '^<(\d+);(\d+);(\d+)([Mm])$' -or -not $script:SshddMouse) { continue }   # other / unwanted
+            if ($Matches[4] -ceq 'm') { continue }                 # release (-ceq: -eq ignores case, M is a press)
+            $btn = [int]$Matches[1] -band (-bnot 28)               # without Shift/Alt/Ctrl
+            switch ($btn) {
+                0  { return New-TuiMouseKey 0 $true ([int]$Matches[2]) ([int]$Matches[3]) }
+                64 { return New-TuiMouseKey 38 $false 0 0 }
+                65 { return New-TuiMouseKey 40 $false 0 0 }
+            }
+        }
+    } finally { if ($Mouse) { Disable-TuiMouse } }
+}
 
 function Wait-UserAcknowledge {
     $h = $Host.UI.RawUI.WindowSize.Height
@@ -10,7 +133,7 @@ function Wait-UserAcknowledge {
     $modifierVKs = @(16, 17, 18, 20, 91, 92, 93, 144, 145)
     try {
         do {
-            $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            $k = Read-TuiKey -Mouse   # a click counts as a key (#42)
         } while ($modifierVKs -contains $k.VirtualKeyCode)
     } catch {
         $null = Read-Host
@@ -35,7 +158,7 @@ function Show-Paged {
         if ($i -lt $total) {
             Write-Host "-- $i/$total lines shown | Enter=more, Q=quit --" -ForegroundColor DarkGray -NoNewline
             try {
-                $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                do { $key = Read-TuiKey -Mouse } while ($key.Click -or $key.VirtualKeyCode -eq 38)   # wheel down = more (#42)
                 Write-Host ""
                 if ($key.Character -eq 'q' -or $key.Character -eq 'Q') { break }
             } catch {
@@ -97,7 +220,13 @@ function Select-FromList {
         $f   += "`e[$th;1H`e[7m$hint$(" " * [Math]::Max(0, $tw - $hint.Length))`e[0m"
         [Console]::Write($f)
 
-        try { $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $k = Read-TuiKey -Mouse } catch { break }
+        if ($k.Click) {   # a click on an entry chooses it, like Enter (#42)
+            $mi = $k.Row - $startRow
+            if ($mi -lt 0 -or $mi -ge $maxVis -or $viewOff + $mi -ge $filtered.Count) { continue }
+            $sel = $viewOff + $mi
+            $k = [pscustomobject]@{ VirtualKeyCode = 13; Character = [char]13; Click = $false }
+        }
 
         $clr = ""; for ($ci = $promptRow; $ci -lt [Math]::Min($startRow + $maxVis + 1, $th); $ci++) { $clr += "`e[$ci;1H`e[K" }
 
@@ -190,7 +319,13 @@ function Select-MultiFromList {
         $f   += "`e[$th;1H`e[7m$hint$(" " * [Math]::Max(0, $tw - $hint.Length))`e[0m"
         [Console]::Write($f)
 
-        try { $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $k = Read-TuiKey -Mouse } catch { break }
+        if ($k.Click) {   # a click on an entry toggles it, like Space (#42)
+            $mi = $k.Row - $startRow
+            if ($mi -lt 0 -or $mi -ge $maxVis -or $viewOff + $mi -ge $Items.Count) { continue }
+            $sel = $viewOff + $mi
+            $k = [pscustomobject]@{ VirtualKeyCode = 32; Character = ' '; Click = $false }
+        }
 
         $clr = ""
         for ($ci = $promptRow; $ci -lt [Math]::Min($startRow + $maxVis + 1, $th); $ci++) {

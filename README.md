@@ -65,7 +65,7 @@ Then run `sshdd`. Options passed to it win for that run, e.g. `sshdd --user root
 | `--comment-suffix STR` | `-[my-machine]` | Appended to key comments |
 | `--password PASS` | *(empty)* | Default SSH password (needs `sshpass`) |
 | `--verbose` | off | Debug log to `/tmp/sshdd-debug.log` |
-| `--no-mouse` | mouse on | Switch the mouse off. While on, a click opens a menu item or list entry and the wheel scrolls; selecting text then needs Shift (Option on a Mac). Also in F5 Conf Defaults. Bash only for now |
+| `--no-mouse` | mouse on | Switch the mouse off. While on, a click opens a menu item or list entry and the wheel scrolls; selecting text then needs Shift (Option on a Mac). Also in F5 Conf Defaults |
 
 ---
 
@@ -120,6 +120,7 @@ Then run `sshdd`.
 | `-DefaultSubnetPrefix` | `192.168.0` | Subnet prefix |
 | `-DefaultCommentSuffix` | `-[my-machine]` | Appended to key comments |
 | `-DefaultPassword` | *(empty)* | Default SSH password |
+| `-NoMouse` | mouse on | Switch the mouse off (click opens, wheel scrolls; Windows: not yet tested). Also in F10 Conf Defaults |
 
 ## Backups
 

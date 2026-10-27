@@ -66,6 +66,7 @@ function Show-MainMenu {
 
             # ── Full render ────────────────────────────────────────────────────────
             if ($needFull) {
+                Enable-TuiMouse   # #42: the menu takes clicks; on again after every screen that switched it off
                 $termWidth  = $Host.UI.RawUI.WindowSize.Width
                 $termHeight = $Host.UI.RawUI.WindowSize.Height
 
@@ -163,10 +164,15 @@ function Show-MainMenu {
             # ── Poll for input ─────────────────────────────────────────────────────
             $key = $null
             while ($null -eq $key) {
-                $available = $false
-                try { $available = $Host.UI.RawUI.KeyAvailable } catch {}
-                if ($available) {
-                    $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                if (Test-TuiInput) {
+                    $key = Read-TuiKey
+                    if ($key.Click) {
+                        if ($key.Row -ge 2 -and $key.Row -le 4) { Open-AxcSite; $key = $null; continue }   # the title (#44)
+                        $hit = @($itemRows.Keys | Where-Object { $itemRows[$_] -eq $key.Row })
+                        if ($hit.Count -eq 0) { $key = $null; continue }
+                        $sel = [int]$hit[0]   # a click on an item opens it, like a tab in herdr (#42)
+                        $key = [pscustomobject]@{ VirtualKeyCode = 13; Character = [char]13; Click = $false }
+                    }
                 } else {
                     $newW = $Host.UI.RawUI.WindowSize.Width
                     $newH = $Host.UI.RawUI.WindowSize.Height
@@ -225,11 +231,22 @@ function Show-MainMenu {
             }
         }
     } finally {
+        Disable-TuiMouse   # never leave the terminal capturing clicks (#42)
         [Console]::Write("`e[?25h`e[?1049l")
         if ($entryCursor) { try { $Host.UI.RawUI.CursorPosition = $entryCursor } catch {} }
     }
 }
 
+
+# Open https://axc.sh in the browser (#44): on this machine only; over SSH it would open on the remote.
+function Open-AxcSite {
+    if ($env:SSH_CONNECTION) { return }
+    try {
+        if ($script:IsWin) { Start-Process "https://axc.sh" }
+        elseif ($IsMacOS) { Start-Process open -ArgumentList "https://axc.sh" }
+        elseif (Get-Command xdg-open -ErrorAction SilentlyContinue) { Start-Process xdg-open -ArgumentList "https://axc.sh" }
+    } catch { }
+}
 
 function _InvokeMenuAction {
     # Draws the operation header, calls Invoke-MenuChoice, handles Wait-UserAcknowledge.
@@ -239,6 +256,7 @@ function _InvokeMenuAction {
         [int]$TermWidth,
         [switch]$IsF
     )
+    Disable-TuiMouse   # operations run ssh, editors and prompts: no click codes there (#42)
     $rule    = ([char]0x2500).ToString() * [Math]::Max(0, $TermWidth - 4)
     $opPad   = " " * [Math]::Max(0, [int](($TermWidth - 4 - $Label.Length) / 2))
     $opTitle = "  " + $opPad + $Label

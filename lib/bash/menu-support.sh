@@ -122,7 +122,7 @@ _run_conf_editor() {
         [[ -n $DEFAULT_USER           ]] && _bf+=" --user $(_sq "$DEFAULT_USER")"            && _pf+=" -DefaultUserName '${DEFAULT_USER//$_q/$_q$_q}'"        && _sf+=" -User '${DEFAULT_USER//$_q/$_q$_q}'"
         [[ -n $DEFAULT_SUBNET_PREFIX  ]] && _bf+=" --subnet $(_sq "$DEFAULT_SUBNET_PREFIX")" && _pf+=" -DefaultSubnetPrefix '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'" && _sf+=" -Subnet '${DEFAULT_SUBNET_PREFIX//$_q/$_q$_q}'"
         [[ -n $DEFAULT_COMMENT_SUFFIX ]] && _bf+=" --comment-suffix $(_sq "$DEFAULT_COMMENT_SUFFIX")" && _pf+=" -DefaultCommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'" && _sf+=" -CommentSuffix '${DEFAULT_COMMENT_SUFFIX//$_q/$_q$_q}'"
-        (( ${SSHDD_MOUSE:-1} ))           || _bf+=" --no-mouse"   # PowerShell has no mouse yet (#41)
+        (( ${SSHDD_MOUSE:-1} ))           || { _bf+=" --no-mouse"; _pf+=" -NoMouse"; _sf+=" -NoMouse"; }   # #41, #42
         [[ -n $DEFAULT_PASSWORD       ]] && _bf+=" --password $(_sq "$DEFAULT_PASSWORD")"    && _pf+=" -DefaultPassword '${DEFAULT_PASSWORD//$_q/$_q$_q}'"     && _sf+=" -Password '${DEFAULT_PASSWORD//$_q/$_q$_q}'"
         local _cur_row=$(( _conf_top + ${#field_names[@]} + 1 ))
         _conf_line ''

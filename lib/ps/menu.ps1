@@ -315,6 +315,7 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         @{ Name = "DefaultSubnetPrefix";  Label = "Default Subnet Prefix " }
         @{ Name = "DefaultCommentSuffix"; Label = "Default Comment Suffix" }
         @{ Name = "DefaultPassword";      Label = "Default Password      " }
+        @{ Name = "SshddMouse";           Label = "Mouse                 " }   # on/off, not text (#42)
     )
     $confSel = 0
     $confRun = $true
@@ -335,7 +336,9 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         $cf += "`e[4;1H  `e[96m$rule`e[0m`e[K"
         for ($i = 0; $i -lt $fieldDefs.Count; $i++) {
             $val  = (Get-Variable -Name $fieldDefs[$i].Name -Scope Script -ErrorAction SilentlyContinue).Value
-            $disp = if ($fieldDefs[$i].Name -eq "DefaultPassword" -and $val) { "*" * $val.Length } else { $val }
+            $disp = if ($fieldDefs[$i].Name -eq "DefaultPassword" -and $val) { "*" * $val.Length }
+                    elseif ($fieldDefs[$i].Name -eq "SshddMouse") { if ($val) { "on   (Enter: off)" } else { "off  (Enter: on)" } }
+                    else { $val }
             $row  = 6 + $i
             $cf  += "`e[$row;1H"
             if ($i -eq $confSel) {
@@ -359,6 +362,7 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         if ($sVal) { $bf += " --subnet $(& $bq $sVal)";         $pf += " -DefaultSubnetPrefix $(& $q $sVal)";  $sf += " -Subnet $(& $q $sVal)" }
         if ($cVal) { $bf += " --comment-suffix $(& $bq $cVal)"; $pf += " -DefaultCommentSuffix $(& $q $cVal)"; $sf += " -CommentSuffix $(& $q $cVal)" }
         if ($pVal) { $bf += " --password $(& $bq $pVal)";       $pf += " -DefaultPassword $(& $q $pVal)";      $sf += " -Password $(& $q $pVal)" }
+        if (-not $script:SshddMouse) { $bf += " --no-mouse"; $pf += " -NoMouse"; $sf += " -NoMouse" }   # #42
 
         $lines = @('', "  `e[90mTo persist across sessions (adds an sshdd alias):`e[0m", '')
         $lines += _ConfCmd "`u{1F41A}  macOS / Linux" "bash <(curl -fsSL $rawUrl/setup/alias.sh)$bf" '\' 33 $tw
@@ -378,16 +382,24 @@ function _MenuConfDefaults {         # choice 11 — inline TUI for editing DEFA
         $cf += "`e[$th;1H`e[7m$hint$(" " * [Math]::Max(0, $tw - $hint.Length))`e[0m"
         [Console]::Write($cf)
 
-        try { $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $k = Read-TuiKey -Mouse } catch { break }
+        if ($k.Click) {   # a click on a field edits it, like Enter (#42)
+            $mi = $k.Row - 6
+            if ($mi -lt 0 -or $mi -ge $fieldDefs.Count) { continue }
+            $confSel = $mi
+            $k = [pscustomobject]@{ VirtualKeyCode = 13; Character = [char]13; Click = $false }
+        }
 
         switch ($k.VirtualKeyCode) {
             38 { $confSel = ($confSel - 1 + $fieldDefs.Count) % $fieldDefs.Count }
             40 { $confSel = ($confSel + 1) % $fieldDefs.Count }
             13 {
+                if ($fieldDefs[$confSel].Name -eq "SshddMouse") { $script:SshddMouse = -not $script:SshddMouse; continue }
                 $row = 6 + $confSel
                 [Console]::Write("`e[$row;1H`e[K  `e[1;33m> $($fieldDefs[$confSel].Label)  `e[0;33m")
                 [Console]::Write("`e[?25h")
-                $newVal = Read-Host
+                # Read-LineKeys, not Read-Host: stray mouse reports are swallowed and Esc keeps the old value (#42)
+                try { $newVal = Read-LineKeys "" } catch [System.OperationCanceledException] { $newVal = $null }
                 [Console]::Write("`e[?25l")
                 if (![string]::IsNullOrWhiteSpace($newVal)) {
                     Set-Variable -Name $fieldDefs[$confSel].Name -Value $newVal -Scope Script

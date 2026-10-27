@@ -130,7 +130,7 @@ function Show-SSHConfigFile {
         $f     += "`e[$termH;1H`e[7m$status$(" " * [Math]::Max(0, $termW - $status.Length))`e[0m"
         [Console]::Write($f)
 
-        try { $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $key = Read-TuiKey -Mouse } catch { break }   # wheel scrolls (#42)
 
         switch ($key.VirtualKeyCode) {
             38 { $off-- }
@@ -335,7 +335,13 @@ function Show-SSHKeyInventory {
             $needRedraw = $false
         }
 
-        try { $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $key = Read-TuiKey -Mouse } catch { break }
+        if ($key.Click) {   # a click on a key row opens it, like Enter (#42)
+            $mi = $key.Row - 8 - $bannerRows
+            if ($mi -lt 0 -or $mi -ge $contentRows -or $off + $mi -ge $keyCount) { continue }
+            $sel = $off + $mi
+            $key = [pscustomobject]@{ VirtualKeyCode = 13; Character = [char]13; Click = $false }
+        }
 
         $moved = $false
         switch ($key.VirtualKeyCode) {
@@ -397,7 +403,7 @@ function _ViewSSHKey {
         $warnPad = " " * [Math]::Max(0, $termW - $warn.Length)
         [Console]::Write("`e[$($termH - 3);1H`e[41m`e[1;97m$warn$warnPad`e[0m")
         [Console]::Write("`e[$($termH - 2);1H  `e[97mShow private key contents? [y/N] `e[0m`e[?25h")
-        try { $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { return }
+        try { $k = Read-TuiKey } catch { return }   # stray mouse reports swallowed (#42); a click is not "y"
         [Console]::Write("`e[?25l")
         if ($k.Character -ne 'y' -and $k.Character -ne 'Y') { return }
         _DisplayKeyFile "$SshDir\$KeyName" "Private Key — $KeyName"
@@ -444,7 +450,7 @@ function _DisplayKeyFile {
         $g     += "`e[$termH;1H`e[7m$status$(" " * [Math]::Max(0, $termW - $status.Length))`e[0m"
         [Console]::Write($g)
 
-        try { $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { break }
+        try { $key = Read-TuiKey -Mouse } catch { break }   # wheel scrolls (#42)
 
         switch ($key.VirtualKeyCode) {
             38 { $off-- }

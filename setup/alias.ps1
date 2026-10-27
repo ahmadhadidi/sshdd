@@ -11,7 +11,8 @@ param(
     [string]$User,
     [string]$Subnet,
     [string]$CommentSuffix,
-    [string]$Password
+    [string]$Password,
+    [switch]$NoMouse        # the function starts sshdd without mouse capture (#42)
 )
 $ErrorActionPreference = 'Stop'
 
@@ -63,6 +64,7 @@ if (Test-Path $local) {
 
 $params = "-DefaultUserName $(Q $User) -DefaultSubnetPrefix $(Q $Subnet) -DefaultCommentSuffix $(Q $CommentSuffix)"
 if ($Password) { $params += " -DefaultPassword $(Q $Password)" }
+if ($NoMouse)  { $params += " -NoMouse" }
 
 New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
 $old = ''
