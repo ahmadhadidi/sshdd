@@ -39,6 +39,8 @@ public static class SshddConsole {
     [DllImport("kernel32.dll")] static extern bool GetNumberOfConsoleInputEvents(IntPtr h, out uint n);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     static extern bool ReadConsoleInputW(IntPtr h, [Out] INPUT_RECORD[] b, uint len, out uint read);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    static extern bool PeekConsoleInputW(IntPtr h, [Out] INPUT_RECORD[] b, uint len, out uint read);
     static uint saved; static bool on;
     static IntPtr In { get { return GetStdHandle(-10); } }
     public static void MouseOn() {
@@ -47,7 +49,22 @@ public static class SshddConsole {
         SetConsoleMode(In, (m | 0x0010 | 0x0080) & ~0x0040u);   // + MOUSE_INPUT + EXTENDED_FLAGS, - QUICK_EDIT
     }
     public static void MouseOff() { if (on) { SetConsoleMode(In, saved); on = false; } }
-    public static bool Available() { uint n; return GetNumberOfConsoleInputEvents(In, out n) && n > 0; }
+    // A key, a left press or the wheel is waiting. Moves (a constant stream in Windows Terminal: #48's
+    // diagnostic), releases and key-ups are discarded here, or the main menu would block in Read() on them.
+    static bool Wanted(INPUT_RECORD e) {
+        if (e.EventType == 1) return e.KeyDown != 0;
+        if (e.EventType == 2) return e.EventFlags == 4 || (e.EventFlags == 0 && (e.ButtonState & 1) != 0);
+        return false;
+    }
+    public static bool Available() {
+        var b = new INPUT_RECORD[1]; uint n, r;
+        while (GetNumberOfConsoleInputEvents(In, out n) && n > 0) {
+            if (!PeekConsoleInputW(In, b, 1, out r) || r == 0) return false;
+            if (Wanted(b[0])) return true;
+            ReadConsoleInputW(In, b, 1, out r);
+        }
+        return false;
+    }
     // Kind: 1 key (Vk, Ch, Ctrl), 2 left press (X, Y), 3 wheel up, 4 wheel down, 0 nothing to report.
     public static int[] Read() {
         var b = new INPUT_RECORD[1]; uint r;
