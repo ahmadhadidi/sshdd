@@ -342,6 +342,9 @@ show_main_menu() {
 
         local k="$KEY"
         _dbg "key pressed: $(printf '%s' "$k" | od -An -tx1 2>/dev/null | tr -d ' \n')"
+        if [[ ${#k} -eq 1 ]] && _drain_burst; then   # a paste: drop the burst, not hotkeys (#48)
+            continue
+        fi
         if [[ $k == "$KEY_CLICK" ]] && (( MOUSE_ROW >= 3 && MOUSE_ROW <= 5 )); then
             _open_axc                                # a click on the title opens https://axc.sh (#44)
             continue

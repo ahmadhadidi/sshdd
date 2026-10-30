@@ -187,6 +187,17 @@ _wait_key() {
     return 0
 }
 
+# Paste guard (#48): a paste (e.g. right-click in Windows Terminal) arrives as a burst of keys that are already
+# waiting; nobody types that fast. Drains whatever is queued without waiting (stty time 0) and returns 0 if
+# there was anything, so the main menu can drop the burst instead of reading it as hotkeys.
+_drain_burst() {
+    local _b _got=1
+    stty min 0 time 0 2>/dev/null || true
+    while _b=$(trap '' TSTP INT QUIT; dd bs=256 count=1 2>/dev/null; echo x) && [[ $_b != x ]]; do _got=0; done
+    stty min 0 time 1 2>/dev/null || true
+    return $_got
+}
+
 # ─── Mouse (TODO #41, like herdr) ─────────────────────────────────────────────
 # The terminal reports the mouse only while _mouse_on is in effect: _wait_key switches it on for screens
 # that set "local _MOUSE_HERE=1" and off as soon as a key arrives, so ssh, editors and text prompts never

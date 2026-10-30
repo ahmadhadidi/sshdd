@@ -166,6 +166,10 @@ function Show-MainMenu {
             while ($null -eq $key) {
                 if (Test-TuiInput) {
                     $key = Read-TuiKey
+                    if (-not $key.Click -and ([int]$key.Character -ge 32 -or $key.VirtualKeyCode -eq 13) -and (Test-TuiInput)) {
+                        while (Test-TuiInput) { $null = Read-TuiKey }   # a paste (right-click) is a burst of queued keys: drop it (#48)
+                        $key = $null; continue
+                    }
                     if ($key.Click) {
                         if ($key.Row -ge 2 -and $key.Row -le 4) { Open-AxcSite; $key = $null; continue }   # the title (#44)
                         $hit = @($itemRows.Keys | Where-Object { $itemRows[$_] -eq $key.Row })
