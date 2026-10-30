@@ -75,3 +75,12 @@ Status: done (in Review, waiting for Ahmad)
 - #37 S / 📒 Edit Known Hosts (pushed 7778d44).
 - #41: click/wheel in every bash screen, like herdr; capture only while an sshdd screen waits for a key; --no-mouse
   and F5 Mouse on/off; setup/alias.sh --no-mouse. PowerShell follow-up: #42. herdr ideas filed: #38-#40.
+
+## 2026-10-30 — Plane (#46), Windows mouse (#42, #48), @mention runs (#47)
+
+Status: done (in Review, waiting for Ahmad)
+- TODO list mirrored to Plane project SSHDD (cron sync every 5 min; plane MCP loads in new sessions).
+- PowerShell mouse works on Windows (Ahmad, after updating his old local clone); paste guard in both main menus.
+- #47: a Plane comment that @mentions the Claude user starts `claude -p` in the repo (claude-init
+  `plane_webhook.py`, port 8790, @reboot cron); Plane needed WEBHOOK_ALLOWED_IPS=192.168.0.190/32 on CT 107.
+- Open: #49 (PS crash on empty config), #43, #45, #19, #38-#40.
