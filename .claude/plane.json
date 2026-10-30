@@ -1,0 +1,13 @@
+{
+ "url": "http://192.168.0.107",
+ "workspace": "claude",
+ "project": "SSHDD",
+ "token_file": "/home/kraid/.config/plane/claude-sshdd.token",
+ "people": {
+  "sshdd": "Claude",
+  "caps": "Caps",
+  "rakuraihs2001": "Ziyad",
+  "claude-ho4": "ClaudeHOf",
+  "ahmadhadidi": "Ahmad"
+ }
+}
